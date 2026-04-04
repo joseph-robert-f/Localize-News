@@ -19,14 +19,16 @@ export interface ExtractionResult {
 }
 
 /**
- * Extract text from a PDF buffer.
+ * Extract text from a PDF buffer using pdf-parse v2's PDFParse class.
  * Returns null if extraction fails or the PDF has no selectable text.
  */
 export async function extractPdfText(buffer: Buffer): Promise<ExtractionResult> {
+  let parser: { destroy(): Promise<void> } | null = null;
   try {
-    // Dynamic import so it only loads when actually needed
-    const pdfParse = (await import("pdf-parse")).default;
-    const result = await pdfParse(buffer);
+    // pdf-parse v2 uses a named class export, not a default function
+    const { PDFParse } = await import("pdf-parse");
+    parser = new PDFParse({ data: buffer });
+    const result = await (parser as { getText(): Promise<{ text: string; numpages?: number }> }).getText();
     const text = result.text.trim();
     if (!text) {
       return { text: null, method: "pdf-parse", pageCount: result.numpages };
@@ -35,6 +37,8 @@ export async function extractPdfText(buffer: Buffer): Promise<ExtractionResult> 
   } catch (err) {
     console.warn("[ocr] pdf-parse failed:", err);
     return { text: null, method: "none" };
+  } finally {
+    await parser?.destroy().catch(() => {});
   }
 }
 
