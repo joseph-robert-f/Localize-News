@@ -4,7 +4,7 @@
  * Flow for each township:
  *   1. Build search queries from the township name/state
  *   2. Run searches → collect candidate document URLs
- *   3. For each URL:
+ *   3. Process each URL concurrently (capped at CONCURRENCY limit):
  *      a. If .pdf: download buffer → pdf-parse → OCR fallback (if enabled)
  *      b. If HTML: Playwright page → extract visible text + any linked PDFs
  *   4. Classify documents (agenda / minutes / budget / etc.)
@@ -17,7 +17,7 @@
 import { chromium } from "@playwright/test";
 import {
   buildSearchQueries,
-  searchDuckDuckGo,
+  getSearchProvider,
   filterDocumentUrls,
 } from "./search";
 import {
@@ -27,13 +27,51 @@ import {
   extractHtmlText,
 } from "./ocr";
 import type { ScraperConfig, ScraperResult, ScrapedDocument } from "./types";
+import { classifyError } from "./types";
 import type { DocumentType } from "../src/lib/db/types";
+
+// ─── Config ──────────────────────────────────────────────────────────────────
 
 const PDF_EXT = /\.pdf(\?.*)?$/i;
 const MAX_URLS_PER_QUERY = 5;
-const MAX_TOTAL_DOCS = 40; // safety cap per run
+const MAX_TOTAL_DOCS = 40;      // safety cap per run
+const CONCURRENCY = 3;          // max simultaneous PDF downloads / HTML fetches
 
-/** Infer document type from URL and title text. */
+// ─── Concurrency semaphore ────────────────────────────────────────────────────
+
+/**
+ * A minimal async semaphore — avoids adding p-limit as a dependency.
+ * Limits concurrent async tasks to `limit` at a time.
+ */
+function createSemaphore(limit: number) {
+  let active = 0;
+  const queue: Array<() => void> = [];
+
+  function release() {
+    active--;
+    if (queue.length > 0) {
+      active++;
+      queue.shift()!();
+    }
+  }
+
+  return async function acquire<T>(fn: () => Promise<T>): Promise<T> {
+    return new Promise((resolve, reject) => {
+      const run = () => {
+        fn().then(resolve, reject).finally(release);
+      };
+      if (active < limit) {
+        active++;
+        run();
+      } else {
+        queue.push(run);
+      }
+    });
+  };
+}
+
+// ─── Document classification & date parsing ───────────────────────────────────
+
 function classifyDocument(title: string, url: string): DocumentType {
   const text = (title + " " + url).toLowerCase();
   if (/\bbudget\b/.test(text)) return "budget";
@@ -43,9 +81,7 @@ function classifyDocument(title: string, url: string): DocumentType {
   return "other";
 }
 
-/** Parse a date string from a title or URL (best-effort). */
 function parseDate(text: string): string | null {
-  // Match patterns like "2025-03-15", "March 15, 2025", "03/15/2025"
   const patterns = [
     /\b(\d{4}-\d{2}-\d{2})\b/,
     /\b(\d{1,2}\/\d{1,2}\/\d{4})\b/,
@@ -61,9 +97,8 @@ function parseDate(text: string): string | null {
   return null;
 }
 
-/**
- * Run the full discovery pipeline for a single township.
- */
+// ─── Main pipeline ────────────────────────────────────────────────────────────
+
 export async function runScraperPipeline(
   config: ScraperConfig & { state: string }
 ): Promise<ScraperResult> {
@@ -74,42 +109,59 @@ export async function runScraperPipeline(
   };
 
   const browser = await chromium.launch({ headless: true });
+  const searchProvider = getSearchProvider();
+  const throttle = createSemaphore(CONCURRENCY);
+
   try {
     const queries = buildSearchQueries(config.townshipName, config.state);
     const seen = new Set<string>();
 
+    // ── Collect all candidate URLs across all search queries ────────────────
+    const candidates: Array<{ url: string; title: string }> = [];
+
     for (const query of queries) {
-      if (result.documents.length >= MAX_TOTAL_DOCS) break;
+      if (candidates.length >= MAX_TOTAL_DOCS * 2) break; // avoid over-fetching
 
       console.log(`[pipeline] Searching: "${query}"`);
-      const searchResults = await searchDuckDuckGo(query);
+      const searchResults = await searchProvider.search(query);
       const filtered = filterDocumentUrls(searchResults).slice(0, MAX_URLS_PER_QUERY);
 
       for (const hit of filtered) {
-        if (result.documents.length >= MAX_TOTAL_DOCS) break;
-        if (seen.has(hit.url)) continue;
-        seen.add(hit.url);
-
-        console.log(`[pipeline] Processing: ${hit.url}`);
-        const doc = await processUrl(hit.url, hit.title, browser, config.skipOcr ?? false);
-        if (doc) result.documents.push(doc);
+        if (!seen.has(hit.url)) {
+          seen.add(hit.url);
+          candidates.push({ url: hit.url, title: hit.title });
+        }
       }
     }
 
-    // Also crawl the township's own website for linked documents
+    // Also crawl the township's own website
     console.log(`[pipeline] Crawling township site: ${config.websiteUrl}`);
     const siteDocs = await crawlTownshipSite(config.websiteUrl, browser, seen);
-    for (const doc of siteDocs) {
-      if (result.documents.length >= MAX_TOTAL_DOCS) break;
-      result.documents.push(doc);
+    result.documents.push(...siteDocs.slice(0, MAX_TOTAL_DOCS - result.documents.length));
+
+    // ── Process all candidates concurrently (capped) ────────────────────────
+    const tasks = candidates
+      .slice(0, MAX_TOTAL_DOCS)
+      .map(({ url, title }) =>
+        throttle(async () => {
+          console.log(`[pipeline] Processing: ${url}`);
+          const doc = await processUrl(url, title, browser, config.skipOcr ?? false);
+          if (doc) result.documents.push(doc);
+        })
+      );
+
+    const settled = await Promise.allSettled(tasks);
+    for (const outcome of settled) {
+      if (outcome.status === "rejected") {
+        result.errors.push(classifyError(outcome.reason));
+      }
     }
 
     console.log(
-      `[pipeline] Done: ${result.documents.length} documents found for ${config.townshipName}`
+      `[pipeline] Done: ${result.documents.length} docs, ${result.errors.length} errors for ${config.townshipName}`
     );
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    result.errors.push(msg);
+    result.errors.push(classifyError(err));
     console.error(`[pipeline] Fatal error for ${config.townshipName}:`, err);
   } finally {
     await browser.close();
@@ -118,7 +170,8 @@ export async function runScraperPipeline(
   return result;
 }
 
-/** Process a single URL — download and extract content. */
+// ─── Per-URL processing ───────────────────────────────────────────────────────
+
 async function processUrl(
   url: string,
   title: string,
@@ -147,19 +200,15 @@ async function processPdfUrl(
 
   let extraction = await extractPdfText(buffer);
 
-  // If no text was extracted and OCR is allowed, try rendering + OCR
   if (!extraction.text && !skipOcr) {
     console.log(`[pipeline] Falling back to OCR for ${url}`);
     extraction = await ocrPdfWithPlaywright(url, browser);
   }
 
-  const type = classifyDocument(title, url);
-  const date = parseDate(title) ?? parseDate(url);
-
   return {
-    type,
+    type: classifyDocument(title, url),
     title: title || url.split("/").pop() || "Document",
-    date,
+    date: parseDate(title) ?? parseDate(url),
     sourceUrl: url,
     fileUrl: url,
     content: extraction.text,
@@ -172,23 +221,18 @@ async function processHtmlUrl(
   browser: Parameters<typeof extractHtmlText>[1]
 ): Promise<ScrapedDocument | null> {
   const extraction = await extractHtmlText(url, browser);
-  const type = classifyDocument(title, url);
-  const date = parseDate(title) ?? parseDate(url);
-
   return {
-    type,
+    type: classifyDocument(title, url),
     title: title || url,
-    date,
+    date: parseDate(title) ?? parseDate(url),
     sourceUrl: url,
     fileUrl: null,
     content: extraction.text,
   };
 }
 
-/**
- * Crawl a township's own website and collect links to documents.
- * Visits the homepage and looks for PDF links up to 2 levels deep.
- */
+// ─── Township site crawler ───────────────────────────────────────────────────
+
 async function crawlTownshipSite(
   siteUrl: string,
   browser: Parameters<typeof extractHtmlText>[1],
@@ -201,11 +245,13 @@ async function crawlTownshipSite(
   try {
     await page.goto(siteUrl, { waitUntil: "domcontentloaded", timeout: 20_000 });
 
-    // Collect all links to PDFs and likely-document pages
     const links = await page.evaluate(() => {
       const anchors = Array.from(document.querySelectorAll("a[href]"));
       return anchors
-        .map((a) => ({ href: (a as HTMLAnchorElement).href, text: a.textContent?.trim() ?? "" }))
+        .map((a) => ({
+          href: (a as HTMLAnchorElement).href,
+          text: a.textContent?.trim() ?? "",
+        }))
         .filter(
           ({ href, text }) =>
             href.startsWith("http") &&
@@ -219,15 +265,13 @@ async function crawlTownshipSite(
     for (const { href, text } of links) {
       if (seen.has(href) || docs.length >= 20) break;
       seen.add(href);
-      const type = classifyDocument(text, href);
-      const date = parseDate(text) ?? parseDate(href);
       docs.push({
-        type,
+        type: classifyDocument(text, href),
         title: text || href.split("/").pop() || "Document",
-        date,
+        date: parseDate(text) ?? parseDate(href),
         sourceUrl: href,
         fileUrl: PDF_EXT.test(href) ? href : null,
-        content: null, // defer extraction to avoid crawl timeout
+        content: null,
       });
     }
   } catch (err) {

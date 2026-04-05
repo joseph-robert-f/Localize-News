@@ -5,6 +5,11 @@
 
 export type TownshipStatus = "pending" | "active" | "error" | "unsupported";
 export type DocumentType = "agenda" | "minutes" | "proposal" | "budget" | "other";
+
+/** Canonical ordered list of all document types — use this instead of re-declaring in each file. */
+export const DOCUMENT_TYPES: readonly DocumentType[] = [
+  "agenda", "minutes", "proposal", "budget", "other",
+];
 export type ScrapeRequestStatus = "pending" | "approved" | "rejected";
 export type ScrapeRunStatus = "running" | "success" | "error";
 export type ScrapeRunTrigger = "cron" | "admin" | "manual";
