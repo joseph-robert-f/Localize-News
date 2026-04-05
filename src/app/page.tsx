@@ -26,12 +26,20 @@ export default async function HomePage() {
             </span>
             <p className="text-xs text-zinc-500">Township public records, indexed</p>
           </div>
-          <Link
-            href="/request"
-            className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
-          >
-            Request a township
-          </Link>
+          <div className="flex items-center gap-3">
+            <Link
+              href="/search"
+              className="text-sm text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200"
+            >
+              Search docs
+            </Link>
+            <Link
+              href="/request"
+              className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
+            >
+              Request a township
+            </Link>
+          </div>
         </div>
       </header>
 

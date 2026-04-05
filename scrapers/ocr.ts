@@ -2,14 +2,23 @@
  * Text extraction pipeline for documents found during scraping.
  *
  * Strategy (in order of preference):
- *   1. Direct PDF text extraction via pdf-parse (fast, no external calls)
+ *   1. Direct PDF text extraction via pdf-parse v2 (fast, no external calls)
  *   2. Tesseract.js OCR on rendered page images (for scanned/image-only PDFs)
  *   3. Return null — caller logs the failure and stores the document without content
  *
- * The caller decides whether to attempt OCR based on ScraperConfig.skipOcr.
+ * fetchBuffer has retry + backoff logic: retries up to MAX_RETRIES times on
+ * network/timeout errors; does NOT retry on 4xx (client errors).
  */
 
 import type { Browser } from "@playwright/test";
+
+// ─── Config ─────────────────────────────────────────────────────────────────
+
+const FETCH_TIMEOUT_MS = 30_000;
+const MAX_RETRIES = 3;
+const RETRY_BASE_MS = 1_000; // 1s → 2s → 4s
+
+// ─── Types ───────────────────────────────────────────────────────────────────
 
 /** Result from any extraction method. */
 export interface ExtractionResult {
@@ -18,6 +27,81 @@ export interface ExtractionResult {
   pageCount?: number;
 }
 
+// ─── Retry utility ───────────────────────────────────────────────────────────
+
+/** Sleep for `ms` milliseconds. */
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Returns true for errors that are worth retrying (transient network/timeout).
+ * 4xx responses are NOT retried — they indicate a permanent client error.
+ */
+function isRetryable(err: unknown): boolean {
+  const msg = (err instanceof Error ? err.message : String(err)).toLowerCase();
+  return (
+    msg.includes("timeout") ||
+    msg.includes("timed out") ||
+    msg.includes("abort") ||
+    msg.includes("econnrefused") ||
+    msg.includes("enotfound") ||
+    msg.includes("network") ||
+    msg.includes("fetch failed") ||
+    // 5xx server errors are transient and worth retrying
+    /http 5\d\d/.test(msg)
+  );
+}
+
+// ─── fetchBuffer ─────────────────────────────────────────────────────────────
+
+/**
+ * Download a remote file as a Buffer.
+ * Retries up to MAX_RETRIES times on transient network/timeout errors
+ * with exponential backoff. Does not retry on 4xx responses.
+ */
+export async function fetchBuffer(url: string): Promise<Buffer | null> {
+  let lastErr: unknown;
+
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    if (attempt > 0) {
+      const delay = RETRY_BASE_MS * Math.pow(2, attempt - 1);
+      console.warn(`[ocr] fetchBuffer retry ${attempt}/${MAX_RETRIES} for ${url} (waiting ${delay}ms)`);
+      await sleep(delay);
+    }
+
+    try {
+      const res = await fetch(url, {
+        headers: { "User-Agent": "LocalizeNewsBot/1.0" },
+        signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+      });
+
+      // Client errors (4xx) → not retryable
+      if (res.status >= 400 && res.status < 500) {
+        console.warn(`[ocr] fetchBuffer ${url} → HTTP ${res.status} (not retrying)`);
+        return null;
+      }
+
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
+      }
+
+      return Buffer.from(await res.arrayBuffer());
+    } catch (err) {
+      lastErr = err;
+      if (!isRetryable(err)) {
+        console.warn(`[ocr] fetchBuffer non-retryable error for ${url}:`, err);
+        return null;
+      }
+    }
+  }
+
+  console.warn(`[ocr] fetchBuffer exhausted retries for ${url}:`, lastErr);
+  return null;
+}
+
+// ─── PDF extraction ──────────────────────────────────────────────────────────
+
 /**
  * Extract text from a PDF buffer using pdf-parse v2's PDFParse class.
  * Returns null if extraction fails or the PDF has no selectable text.
@@ -25,10 +109,11 @@ export interface ExtractionResult {
 export async function extractPdfText(buffer: Buffer): Promise<ExtractionResult> {
   let parser: { destroy(): Promise<void> } | null = null;
   try {
-    // pdf-parse v2 uses a named class export, not a default function
     const { PDFParse } = await import("pdf-parse");
     parser = new PDFParse({ data: buffer });
-    const result = await (parser as { getText(): Promise<{ text: string; numpages?: number }> }).getText();
+    const result = await (
+      parser as { getText(): Promise<{ text: string; numpages?: number }> }
+    ).getText();
     const text = result.text.trim();
     if (!text) {
       return { text: null, method: "pdf-parse", pageCount: result.numpages };
@@ -42,12 +127,11 @@ export async function extractPdfText(buffer: Buffer): Promise<ExtractionResult> 
   }
 }
 
+// ─── OCR via Playwright ──────────────────────────────────────────────────────
+
 /**
  * Render a PDF page as an image using Playwright, then OCR it with Tesseract.js.
  * Only called when direct PDF text extraction returns empty content.
- *
- * @param pdfUrl - URL to the PDF (Playwright will navigate to it)
- * @param browser - existing Playwright Browser instance (shared with caller)
  */
 export async function ocrPdfWithPlaywright(
   pdfUrl: string,
@@ -59,7 +143,6 @@ export async function ocrPdfWithPlaywright(
   try {
     await page.goto(pdfUrl, { waitUntil: "networkidle", timeout: 30_000 });
     const screenshot = await page.screenshot({ fullPage: true });
-
     const text = await runTesseract(screenshot);
     return { text: text || null, method: "ocr" };
   } catch (err) {
@@ -70,9 +153,10 @@ export async function ocrPdfWithPlaywright(
   }
 }
 
+// ─── HTML extraction ─────────────────────────────────────────────────────────
+
 /**
  * Extract visible text from a plain HTML page using Playwright.
- * Used for township pages that list documents inline (no PDF).
  */
 export async function extractHtmlText(
   url: string,
@@ -83,12 +167,11 @@ export async function extractHtmlText(
 
   try {
     await page.goto(url, { waitUntil: "domcontentloaded", timeout: 20_000 });
-    // Remove nav, header, footer noise; grab main content
     const text = await page.evaluate(() => {
       const selectors = ["main", "article", "#content", ".content", "body"];
       for (const sel of selectors) {
         const el = document.querySelector(sel);
-        if (el) return el.innerText;
+        if (el) return (el as HTMLElement).innerText;
       }
       return document.body.innerText;
     });
@@ -101,33 +184,10 @@ export async function extractHtmlText(
   }
 }
 
-/**
- * Download a remote file as a Buffer.
- */
-export async function fetchBuffer(url: string): Promise<Buffer | null> {
-  try {
-    const res = await fetch(url, {
-      headers: { "User-Agent": "LocalizeNewsBot/1.0" },
-      signal: AbortSignal.timeout(30_000),
-    });
-    if (!res.ok) {
-      console.warn(`[ocr] fetchBuffer ${url} returned HTTP ${res.status}`);
-      return null;
-    }
-    return Buffer.from(await res.arrayBuffer());
-  } catch (err) {
-    console.warn("[ocr] fetchBuffer failed for", url, ":", err);
-    return null;
-  }
-}
+// ─── Tesseract ───────────────────────────────────────────────────────────────
 
-/**
- * Run Tesseract.js OCR on a PNG/JPEG buffer.
- * Returns the recognised text string (may be empty).
- */
 async function runTesseract(imageBuffer: Buffer): Promise<string> {
   try {
-    // Dynamic import — tesseract.js is large; only load when OCR is needed
     const Tesseract = await import("tesseract.js");
     const worker = await Tesseract.createWorker("eng");
     const { data } = await worker.recognize(imageBuffer);

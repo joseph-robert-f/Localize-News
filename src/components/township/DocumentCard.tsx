@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Badge } from "@/components/ui/Badge";
 import { Card, CardBody, CardHeader, CardTitle } from "@/components/ui/Card";
 import { formatDate, truncate } from "@/lib/utils";
@@ -5,6 +6,9 @@ import type { TownshipDocument, DocumentType } from "@/lib/db/types";
 
 interface DocumentCardProps {
   doc: TownshipDocument;
+  /** When shown on a cross-township search page, display the township name. */
+  townshipName?: string;
+  townshipState?: string;
 }
 
 const typeConfig: Record<DocumentType, { label: string; variant: "info" | "default" | "success" | "warning" }> = {
@@ -15,7 +19,7 @@ const typeConfig: Record<DocumentType, { label: string; variant: "info" | "defau
   other:    { label: "Other",    variant: "default" },
 };
 
-export function DocumentCard({ doc }: DocumentCardProps) {
+export function DocumentCard({ doc, townshipName, townshipState }: DocumentCardProps) {
   const { label, variant } = typeConfig[doc.type] ?? typeConfig.other;
 
   return (
@@ -23,11 +27,24 @@ export function DocumentCard({ doc }: DocumentCardProps) {
       <CardHeader>
         <div className="flex flex-col gap-1">
           <CardTitle>{doc.title}</CardTitle>
-          {doc.date && (
-            <p className="text-xs text-zinc-500 dark:text-zinc-500">
-              {formatDate(doc.date)}
-            </p>
-          )}
+          <div className="flex items-center gap-2">
+            {doc.date && (
+              <p className="text-xs text-zinc-500 dark:text-zinc-500">
+                {formatDate(doc.date)}
+              </p>
+            )}
+            {townshipName && (
+              <>
+                {doc.date && <span className="text-xs text-zinc-300 dark:text-zinc-600">·</span>}
+                <Link
+                  href={`/townships/${doc.township_id}`}
+                  className="text-xs text-zinc-500 hover:underline dark:text-zinc-400"
+                >
+                  {townshipName}{townshipState ? `, ${townshipState}` : ""}
+                </Link>
+              </>
+            )}
+          </div>
         </div>
         <Badge variant={variant}>{label}</Badge>
       </CardHeader>

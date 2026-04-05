@@ -99,7 +99,7 @@ export async function runScrapers(
     }
 
     for (const e of scraperResult.errors) {
-      summary.errors.push({ townshipId: township.id, message: e });
+      summary.errors.push({ townshipId: township.id, message: `[${e.type}] ${e.message}` });
     }
   }
 

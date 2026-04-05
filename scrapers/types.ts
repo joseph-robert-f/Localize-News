@@ -4,7 +4,17 @@ import type { DocumentType } from "../src/lib/db/types";
 export interface ScraperResult {
   townshipId: string;
   documents: ScrapedDocument[];
-  errors: string[];
+  errors: ScraperError[];
+}
+
+/** Classification of what went wrong in a scraper error. */
+export type ScraperErrorType = "network" | "timeout" | "parse" | "auth" | "unknown";
+
+/** A structured error from a scraper run (replaces plain strings). */
+export interface ScraperError {
+  type: ScraperErrorType;
+  message: string;
+  url?: string;
 }
 
 /** A single document discovered during a scrape run. */
@@ -26,4 +36,32 @@ export interface ScraperConfig {
   searchKeywords?: string[];
   /** Skip OCR even if text extraction fails (useful for well-structured sites). */
   skipOcr?: boolean;
+}
+
+/** Classify a caught error into a ScraperErrorType. */
+export function classifyError(err: unknown, url?: string): ScraperError {
+  const message = err instanceof Error ? err.message : String(err);
+  const lower = message.toLowerCase();
+
+  let type: ScraperErrorType = "unknown";
+  if (lower.includes("timeout") || lower.includes("timed out") || lower.includes("abort")) {
+    type = "timeout";
+  } else if (
+    lower.includes("network") ||
+    lower.includes("econnrefused") ||
+    lower.includes("enotfound") ||
+    lower.includes("fetch failed")
+  ) {
+    type = "network";
+  } else if (lower.includes("401") || lower.includes("403") || lower.includes("unauthorized")) {
+    type = "auth";
+  } else if (
+    lower.includes("parse") ||
+    lower.includes("invalid pdf") ||
+    lower.includes("unexpected token")
+  ) {
+    type = "parse";
+  }
+
+  return { type, message, url };
 }

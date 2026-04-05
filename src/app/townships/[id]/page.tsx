@@ -3,6 +3,7 @@ import Link from "next/link";
 import { getTownshipById } from "@/lib/db/townships";
 import { getDocumentsByTownship, getDocumentCounts } from "@/lib/db/documents";
 import { DocumentList } from "@/components/township/DocumentList";
+import { LoadMore } from "@/components/township/LoadMore";
 import { StatusBadge } from "@/components/township/StatusBadge";
 import { formatDate } from "@/lib/utils";
 import type { DocumentType } from "@/lib/db/types";
@@ -29,8 +30,8 @@ export default async function TownshipPage({
       ? (rawType as DocumentType)
       : undefined;
 
-  const [documents, counts] = await Promise.all([
-    getDocumentsByTownship(id, { type: selectedType, limit: 50 }),
+  const [{ documents, nextCursor }, counts] = await Promise.all([
+    getDocumentsByTownship(id, { type: selectedType }),
     getDocumentCounts(id),
   ]);
 
@@ -125,6 +126,7 @@ export default async function TownshipPage({
               : "No documents indexed yet."
           }
         />
+        <LoadMore townshipId={id} type={selectedType} initialCursor={nextCursor} />
       </main>
     </div>
   );
