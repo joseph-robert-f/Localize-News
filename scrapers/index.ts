@@ -38,11 +38,12 @@ export interface OrchestratorResult {
  */
 export async function runScrapers(
   townships: Township[],
-  opts: OrchestratorOptions = {}  // eslint-disable-line @typescript-eslint/no-unused-vars
+  opts: OrchestratorOptions = {}
 ): Promise<OrchestratorResult> {
   const { upsertDocuments } = await import("../src/lib/db/documents");
   const { markTownshipScraped } = await import("../src/lib/db/townships");
 
+  const trigger = opts.trigger ?? "manual";
   const summary: OrchestratorResult = {
     ran: 0,
     totalFound: 0,
@@ -51,7 +52,7 @@ export async function runScrapers(
   };
 
   for (const township of townships) {
-    console.log(`[orchestrator] Scraping ${township.name}, ${township.state}…`);
+    console.log(`[orchestrator:${trigger}] Scraping ${township.name}, ${township.state}…`);
     let scraperResult: ScraperResult;
     try {
       scraperResult = await runScraperPipeline({
@@ -92,7 +93,9 @@ export async function runScrapers(
       }
     }
 
-    if (scraperResult.errors.length === 0) {
+    // Mark as scraped if we processed at least some documents successfully,
+    // even if there were partial errors (e.g. a few PDFs failed to fetch).
+    if (scraperResult.documents.length > 0 || scraperResult.errors.length === 0) {
       await markTownshipScraped(township.id).catch((err) =>
         console.warn("[orchestrator] markTownshipScraped failed:", err)
       );

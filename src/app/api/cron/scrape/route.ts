@@ -55,8 +55,8 @@ export async function POST(req: NextRequest) {
       townships = await getActiveTownships();
     }
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    return NextResponse.json({ error: `DB error: ${msg}` }, { status: 500 });
+    console.error("[cron/scrape] Failed to resolve townships:", err);
+    return NextResponse.json({ error: "Failed to load townships." }, { status: 500 });
   }
 
   if (townships.length === 0) {
@@ -77,20 +77,30 @@ export async function POST(req: NextRequest) {
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     console.error("[cron/scrape] runScrapers threw:", err);
-    if (runId) await finishScrapeRun(runId, { status: "error", found: 0, inserted: 0, errorMessage: msg }).catch(() => {});
-    return NextResponse.json({ error: msg }, { status: 500 });
+    if (runId) {
+      try {
+        await finishScrapeRun(runId, { status: "error", found: 0, inserted: 0, errorMessage: msg });
+      } catch (logErr) {
+        console.error("[cron/scrape] Failed to record error run:", logErr);
+      }
+    }
+    return NextResponse.json({ error: "Scrape run failed." }, { status: 500 });
   }
 
   // ── Finish run log ──────────────────────────────────────────────────────────
   if (runId) {
-    await finishScrapeRun(runId, {
-      status: summary.errors.length === 0 ? "success" : "error",
-      found: summary.totalFound,
-      inserted: summary.totalInserted,
-      errorMessage: summary.errors.length > 0
-        ? summary.errors.map((e) => `${e.townshipId}: ${e.message}`).join("; ")
-        : undefined,
-    }).catch(() => {});
+    try {
+      await finishScrapeRun(runId, {
+        status: summary.errors.length === 0 ? "success" : "partial",
+        found: summary.totalFound,
+        inserted: summary.totalInserted,
+        errorMessage: summary.errors.length > 0
+          ? summary.errors.map((e) => `${e.townshipId}: ${e.message}`).join("; ")
+          : undefined,
+      });
+    } catch (logErr) {
+      console.error("[cron/scrape] Failed to finalize scrape run log:", logErr);
+    }
   }
 
   return NextResponse.json({

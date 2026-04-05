@@ -1,10 +1,9 @@
 import Link from "next/link";
 import { searchDocumentsWithTownship } from "@/lib/db/documents";
 import { DocumentCard } from "@/components/township/DocumentCard";
+import { DOCUMENT_TYPES } from "@/lib/db/types";
 import type { DocumentType } from "@/lib/db/types";
 import type { DocumentWithTownship } from "@/lib/db/documents";
-
-const DOC_TYPES: DocumentType[] = ["agenda", "minutes", "budget", "proposal", "other"];
 
 export default async function SearchPage({
   searchParams,
@@ -14,7 +13,7 @@ export default async function SearchPage({
   const { q: rawQ, type: rawType } = await searchParams;
   const query = rawQ?.trim() ?? "";
   const selectedType =
-    rawType && DOC_TYPES.includes(rawType as DocumentType)
+    rawType && (DOCUMENT_TYPES as readonly string[]).includes(rawType)
       ? (rawType as DocumentType)
       : undefined;
 
@@ -90,7 +89,7 @@ export default async function SearchPage({
             >
               All types
             </Link>
-            {DOC_TYPES.map((t) => (
+            {DOCUMENT_TYPES.map((t) => (
               <Link
                 key={t}
                 href={`/search?q=${encodeURIComponent(query)}&type=${t}`}

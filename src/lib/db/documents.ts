@@ -22,10 +22,13 @@ function encodeCursor(doc: TownshipDocument): DocumentCursor {
   return `${doc.date ?? "0000-00-00"}|${doc.id}`;
 }
 
-/** Decode a cursor back into its parts. */
+// Cursor format: ISO date (YYYY-MM-DD or 0000-00-00) + "|" + UUID v4
+const CURSOR_RE = /^\d{4}-\d{2}-\d{2}\|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Decode a cursor back into its parts. Returns null if format is invalid. */
 function decodeCursor(cursor: DocumentCursor): { date: string; id: string } | null {
+  if (!CURSOR_RE.test(cursor)) return null;
   const idx = cursor.lastIndexOf("|");
-  if (idx === -1) return null;
   return { date: cursor.slice(0, idx), id: cursor.slice(idx + 1) };
 }
 

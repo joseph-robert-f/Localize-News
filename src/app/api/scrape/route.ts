@@ -56,19 +56,30 @@ export async function POST(req: NextRequest) {
     summary = await runScrapers([township], { trigger: "admin", townshipId: township.id });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    if (runId) await finishScrapeRun(runId, { status: "error", found: 0, inserted: 0, errorMessage: msg }).catch(() => {});
-    return NextResponse.json({ error: msg }, { status: 500 });
+    console.error("[api/scrape] runScrapers threw:", err);
+    if (runId) {
+      try {
+        await finishScrapeRun(runId, { status: "error", found: 0, inserted: 0, errorMessage: msg });
+      } catch (logErr) {
+        console.error("[api/scrape] Failed to record error run:", logErr);
+      }
+    }
+    return NextResponse.json({ error: "Scrape run failed." }, { status: 500 });
   }
 
   if (runId) {
-    await finishScrapeRun(runId, {
-      status: summary.errors.length === 0 ? "success" : "error",
-      found: summary.totalFound,
-      inserted: summary.totalInserted,
-      errorMessage: summary.errors.length > 0
-        ? summary.errors.map((e) => e.message).join("; ")
-        : undefined,
-    }).catch(() => {});
+    try {
+      await finishScrapeRun(runId, {
+        status: summary.errors.length === 0 ? "success" : "partial",
+        found: summary.totalFound,
+        inserted: summary.totalInserted,
+        errorMessage: summary.errors.length > 0
+          ? summary.errors.map((e) => e.message).join("; ")
+          : undefined,
+      });
+    } catch (logErr) {
+      console.error("[api/scrape] Failed to finalize scrape run log:", logErr);
+    }
   }
 
   return NextResponse.json({

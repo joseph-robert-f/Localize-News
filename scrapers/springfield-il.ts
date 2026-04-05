@@ -67,7 +67,7 @@ export async function scrapeSpringfieldIL(townshipId = TOWNSHIP_ID_PLACEHOLDER):
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     console.error("[springfield-il] Fatal error:", err);
-    result.errors.push(msg);
+    result.errors.push({ type: "unknown", message: msg });
   } finally {
     await browser.close();
   }

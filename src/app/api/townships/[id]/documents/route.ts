@@ -10,9 +10,10 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getDocumentsByTownship, PAGE_SIZE } from "@/lib/db/documents";
+import { DOCUMENT_TYPES } from "@/lib/db/types";
 import type { DocumentType } from "@/lib/db/types";
 
-const VALID_TYPES = new Set(["agenda", "minutes", "proposal", "budget", "other"]);
+const VALID_TYPES = new Set<DocumentType>(DOCUMENT_TYPES);
 
 export async function GET(
   req: NextRequest,
@@ -34,8 +35,7 @@ export async function GET(
     const page = await getDocumentsByTownship(id, { type, pageSize, cursor });
     return NextResponse.json(page);
   } catch (err) {
-    const msg = err instanceof Error ? err.message : "Unknown error";
     console.error(`[api/townships/${id}/documents] GET failed:`, err);
-    return NextResponse.json({ error: msg }, { status: 500 });
+    return NextResponse.json({ error: "Failed to load documents. Please try again." }, { status: 500 });
   }
 }

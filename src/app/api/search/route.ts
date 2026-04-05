@@ -12,9 +12,11 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { searchDocumentsWithTownship } from "@/lib/db/documents";
+import { DOCUMENT_TYPES } from "@/lib/db/types";
 import type { DocumentType } from "@/lib/db/types";
 
-const VALID_TYPES = new Set<DocumentType>(["agenda", "minutes", "proposal", "budget", "other"]);
+const VALID_TYPES = new Set<DocumentType>(DOCUMENT_TYPES);
+const MAX_QUERY_LENGTH = 500;
 
 export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl;
@@ -23,6 +25,12 @@ export async function GET(req: NextRequest) {
   if (q.length < 2) {
     return NextResponse.json(
       { error: "Query must be at least 2 characters." },
+      { status: 400 }
+    );
+  }
+  if (q.length > MAX_QUERY_LENGTH) {
+    return NextResponse.json(
+      { error: `Query must be at most ${MAX_QUERY_LENGTH} characters.` },
       { status: 400 }
     );
   }
@@ -39,8 +47,7 @@ export async function GET(req: NextRequest) {
     const results = await searchDocumentsWithTownship(q, { type, limit });
     return NextResponse.json(results);
   } catch (err) {
-    const msg = err instanceof Error ? err.message : "Unknown error";
     console.error("[api/search] GET failed:", err);
-    return NextResponse.json({ error: msg }, { status: 500 });
+    return NextResponse.json({ error: "Search failed. Please try again." }, { status: 500 });
   }
 }

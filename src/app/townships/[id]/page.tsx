@@ -6,11 +6,10 @@ import { DocumentList } from "@/components/township/DocumentList";
 import { LoadMore } from "@/components/township/LoadMore";
 import { StatusBadge } from "@/components/township/StatusBadge";
 import { formatDate } from "@/lib/utils";
+import { DOCUMENT_TYPES } from "@/lib/db/types";
 import type { DocumentType } from "@/lib/db/types";
 
 export const revalidate = 3600;
-
-const DOC_TYPES: DocumentType[] = ["agenda", "minutes", "budget", "proposal", "other"];
 
 export default async function TownshipPage({
   params,
@@ -26,7 +25,7 @@ export default async function TownshipPage({
   if (!township) notFound();
 
   const selectedType =
-    rawType && DOC_TYPES.includes(rawType as DocumentType)
+    rawType && (DOCUMENT_TYPES as readonly string[]).includes(rawType)
       ? (rawType as DocumentType)
       : undefined;
 
@@ -99,7 +98,7 @@ export default async function TownshipPage({
           >
             All
           </Link>
-          {DOC_TYPES.map((t) => (
+          {DOCUMENT_TYPES.map((t) => (
             <Link
               key={t}
               href={`/townships/${id}?type=${t}`}
