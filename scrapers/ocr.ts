@@ -18,6 +18,9 @@ const FETCH_TIMEOUT_MS = 30_000;
 const MAX_RETRIES = 3;
 const RETRY_BASE_MS = 1_000; // 1s → 2s → 4s
 
+/** Cap extracted text at ~500 KB to avoid exceeding DB column / payload limits. */
+const MAX_CONTENT_CHARS = 500_000;
+
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 /** Result from any extraction method. */
@@ -118,7 +121,8 @@ export async function extractPdfText(buffer: Buffer): Promise<ExtractionResult> 
     if (!text) {
       return { text: null, method: "pdf-parse", pageCount: result.total };
     }
-    return { text, method: "pdf-parse", pageCount: result.total };
+    const truncated = text.length > MAX_CONTENT_CHARS ? text.slice(0, MAX_CONTENT_CHARS) : text;
+    return { text: truncated, method: "pdf-parse", pageCount: result.total };
   } catch (err) {
     console.warn("[ocr] pdf-parse failed:", err);
     return { text: null, method: "none" };
@@ -143,7 +147,8 @@ export async function ocrPdfWithPlaywright(
   try {
     await page.goto(pdfUrl, { waitUntil: "networkidle", timeout: 30_000 });
     const screenshot = await page.screenshot({ fullPage: true });
-    const text = await runTesseract(screenshot);
+    const raw = await runTesseract(screenshot);
+    const text = raw.length > MAX_CONTENT_CHARS ? raw.slice(0, MAX_CONTENT_CHARS) : raw;
     return { text: text || null, method: "ocr" };
   } catch (err) {
     console.warn("[ocr] Playwright OCR failed for", pdfUrl, ":", err);
@@ -167,7 +172,7 @@ export async function extractHtmlText(
 
   try {
     await page.goto(url, { waitUntil: "domcontentloaded", timeout: 20_000 });
-    const text = await page.evaluate(() => {
+    const raw = await page.evaluate(() => {
       const selectors = ["main", "article", "#content", ".content", "body"];
       for (const sel of selectors) {
         const el = document.querySelector(sel);
@@ -175,7 +180,9 @@ export async function extractHtmlText(
       }
       return document.body.innerText;
     });
-    return { text: text?.trim() || null, method: "html" };
+    const trimmed = raw?.trim() ?? "";
+    const text = trimmed.length > MAX_CONTENT_CHARS ? trimmed.slice(0, MAX_CONTENT_CHARS) : trimmed;
+    return { text: text || null, method: "html" };
   } catch (err) {
     console.warn("[ocr] HTML extraction failed for", url, ":", err);
     return { text: null, method: "none" };

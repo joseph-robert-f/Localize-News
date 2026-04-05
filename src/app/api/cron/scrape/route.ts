@@ -91,7 +91,7 @@ export async function POST(req: NextRequest) {
   if (runId) {
     try {
       await finishScrapeRun(runId, {
-        status: summary.errors.length === 0 ? "success" : "partial",
+        status: summary.errors.length === 0 ? "success" : "error",
         found: summary.totalFound,
         inserted: summary.totalInserted,
         errorMessage: summary.errors.length > 0

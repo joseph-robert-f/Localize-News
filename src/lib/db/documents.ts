@@ -123,7 +123,7 @@ export async function searchDocuments(
   if (opts.townshipId) q = q.eq("township_id", opts.townshipId);
 
   const { data, error } = await q;
-  if (error) throw new Error(`searchDocuments: ${error.message}`);
+  if (error) throw new Error("searchDocuments failed");
   return data ?? [];
 }
 
