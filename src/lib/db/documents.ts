@@ -1,5 +1,6 @@
 import { createServerClient } from "../supabase";
 import type { TownshipDocument, DocumentType } from "./types";
+import { DOCUMENT_TYPES } from "./types";
 
 export const PAGE_SIZE = 24; // default page size for document lists
 
@@ -125,6 +126,75 @@ export async function searchDocuments(
   const { data, error } = await q;
   if (error) throw new Error("searchDocuments failed");
   return data ?? [];
+}
+
+/** Count all indexed documents across active townships — used by the home page stats bar. */
+export async function getTotalDocumentCount(): Promise<number> {
+  const db = createServerClient();
+  const { count, error } = await db
+    .from("documents")
+    .select("id", { count: "exact", head: true });
+  if (error) throw new Error("getTotalDocumentCount failed");
+  return count ?? 0;
+}
+
+/**
+ * Return monthly document counts for the last 12 months for a given township.
+ * Zero-fills months with no documents so charts always have 12 data points.
+ */
+export async function getDocumentMonthCounts(
+  townshipId: string
+): Promise<Array<{ month: string; label: string; count: number }>> {
+  const db = createServerClient();
+  const { data, error } = await db
+    .from("documents")
+    .select("date")
+    .eq("township_id", townshipId)
+    .not("date", "is", null);
+  if (error) throw new Error("getDocumentMonthCounts failed");
+
+  const counts: Record<string, number> = {};
+  for (const row of data ?? []) {
+    const month = (row.date as string).slice(0, 7); // "YYYY-MM"
+    counts[month] = (counts[month] ?? 0) + 1;
+  }
+
+  const MONTH_LABELS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  const result: Array<{ month: string; label: string; count: number }> = [];
+  const now = new Date();
+  for (let i = 11; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const month = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    result.push({ month, label: MONTH_LABELS[d.getMonth()], count: counts[month] ?? 0 });
+  }
+  return result;
+}
+
+/**
+ * Return the most recent document for each type that has at least one document.
+ * Used by the township page "Quick links" section.
+ */
+export async function getMostRecentByType(
+  townshipId: string
+): Promise<Partial<Record<DocumentType, TownshipDocument>>> {
+  const db = createServerClient();
+  const results = await Promise.all(
+    DOCUMENT_TYPES.map(async (type) => {
+      const { data } = await db
+        .from("documents")
+        .select("*")
+        .eq("township_id", townshipId)
+        .eq("type", type)
+        .order("date", { ascending: false, nullsFirst: false })
+        .order("id", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      return [type, data] as const;
+    })
+  );
+  return Object.fromEntries(
+    results.filter(([, doc]) => doc !== null)
+  ) as Partial<Record<DocumentType, TownshipDocument>>;
 }
 
 /** Search documents joined with township name — used by the /search page. */
