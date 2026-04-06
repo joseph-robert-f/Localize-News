@@ -77,15 +77,64 @@ export async function getDocumentsByTownship(
 /** Upsert a batch of documents for a township (idempotent — keyed on township_id + source_url). */
 export async function upsertDocuments(
   docs: Omit<TownshipDocument, "id" | "created_at">[]
-): Promise<{ inserted: number }> {
-  if (docs.length === 0) return { inserted: 0 };
+): Promise<{ inserted: number; ids: string[] }> {
+  if (docs.length === 0) return { inserted: 0, ids: [] };
   const db = createServerClient();
   const { data, error } = await db
     .from("documents")
     .upsert(docs, { onConflict: "township_id,source_url", ignoreDuplicates: false })
     .select("id");
   if (error) throw new Error(`upsertDocuments: ${error.message}`);
-  return { inserted: data?.length ?? 0 };
+  return { inserted: data?.length ?? 0, ids: data?.map((r) => r.id) ?? [] };
+}
+
+/** Minimum content length before we attempt to summarize a document. */
+const MIN_CONTENT_FOR_SUMMARY = 200;
+
+/** Persist an AI-generated summary for a document. */
+export async function setDocumentSummary(id: string, summary: string): Promise<void> {
+  const db = createServerClient();
+  const { error } = await db
+    .from("documents")
+    .update({ ai_summary: summary })
+    .eq("id", id);
+  if (error) throw new Error(`setDocumentSummary: ${error.message}`);
+}
+
+/** Return documents that have content but no AI summary yet (for batch summarization). */
+export async function getDocumentsNeedingSummary(
+  opts: { limit?: number; townshipId?: string } = {}
+): Promise<TownshipDocument[]> {
+  const db = createServerClient();
+  let q = db
+    .from("documents")
+    .select("*")
+    .is("ai_summary", null)
+    .not("content", "is", null)
+    .limit(opts.limit ?? 50);
+  if (opts.townshipId) q = q.eq("township_id", opts.townshipId);
+  const { data, error } = await q;
+  if (error) throw new Error(`getDocumentsNeedingSummary: ${error.message}`);
+  // Filter by minimum content length in JS (PostgREST has no char_length filter)
+  return (data ?? []).filter((d) => (d.content?.length ?? 0) >= MIN_CONTENT_FOR_SUMMARY);
+}
+
+/** Return the most recent minutes/agenda documents that have an AI summary. */
+export async function getRecentSummaries(
+  townshipId: string,
+  limit = 3
+): Promise<TownshipDocument[]> {
+  const db = createServerClient();
+  const { data, error } = await db
+    .from("documents")
+    .select("*")
+    .eq("township_id", townshipId)
+    .in("type", ["minutes", "agenda"])
+    .not("ai_summary", "is", null)
+    .order("date", { ascending: false, nullsFirst: false })
+    .limit(limit);
+  if (error) throw new Error(`getRecentSummaries: ${error.message}`);
+  return data ?? [];
 }
 
 /** Count documents grouped by type for a township. */

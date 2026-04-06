@@ -6,6 +6,7 @@ import {
   getDocumentCounts,
   getDocumentMonthCounts,
   getMostRecentByType,
+  getRecentSummaries,
 } from "@/lib/db/documents";
 import { DocumentList } from "@/components/township/DocumentList";
 import { LoadMore } from "@/components/township/LoadMore";
@@ -13,6 +14,7 @@ import { StatusBadge } from "@/components/township/StatusBadge";
 import { DocumentTimeline } from "@/components/township/DocumentTimeline";
 import { TypeBreakdown } from "@/components/township/TypeBreakdown";
 import { RecentByType } from "@/components/township/RecentByType";
+import { MeetingDigest } from "@/components/township/MeetingDigest";
 import { formatDate } from "@/lib/utils";
 import { DOCUMENT_TYPES } from "@/lib/db/types";
 import type { DocumentType } from "@/lib/db/types";
@@ -37,12 +39,13 @@ export default async function TownshipPage({
       ? (rawType as DocumentType)
       : undefined;
 
-  const [{ documents, nextCursor }, counts, monthCounts, recentByType] =
+  const [{ documents, nextCursor }, counts, monthCounts, recentByType, recentSummaries] =
     await Promise.all([
       getDocumentsByTownship(id, { type: selectedType }),
       getDocumentCounts(id),
       getDocumentMonthCounts(id),
       getMostRecentByType(id),
+      getRecentSummaries(id, 3),
     ]);
 
   const totalDocs = Object.values(counts).reduce((a, b) => a + b, 0);
@@ -118,6 +121,16 @@ export default async function TownshipPage({
         {showDashboard ? (
           /* ── Overview / Dashboard ─────────────────────────────── */
           <div className="space-y-8">
+            {/* AI-generated meeting digests */}
+            {recentSummaries.length > 0 && (
+              <div>
+                <h2 className="mb-4 text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                  What&apos;s been discussed
+                </h2>
+                <MeetingDigest docs={recentSummaries} />
+              </div>
+            )}
+
             {/* Stat cards */}
             <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
               {DOCUMENT_TYPES.map((type) => (

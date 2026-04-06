@@ -71,9 +71,10 @@ export async function runScrapers(
     summary.ran += 1;
     summary.totalFound += scraperResult.documents.length;
 
+    let upsertedIds: string[] = [];
     if (scraperResult.documents.length > 0) {
       try {
-        const { inserted } = await upsertDocuments(
+        const { inserted, ids } = await upsertDocuments(
           scraperResult.documents.map((d) => ({
             township_id: township.id,
             type: d.type,
@@ -82,15 +83,24 @@ export async function runScrapers(
             source_url: d.sourceUrl,
             content: d.content,
             file_url: d.fileUrl,
+            ai_summary: null,
             scraped_at: new Date().toISOString(),
           }))
         );
         summary.totalInserted += inserted;
+        upsertedIds = ids;
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         console.error(`[orchestrator] upsertDocuments failed for ${township.id}:`, err);
         summary.errors.push({ townshipId: township.id, message: `upsert: ${msg}` });
       }
+    }
+
+    // Fire-and-forget summarization — never blocks document persistence
+    if (upsertedIds.length > 0 && process.env.ANTHROPIC_API_KEY) {
+      summarizeUpsertedDocs(upsertedIds, township.id).catch((err) =>
+        console.warn("[orchestrator] Summarization failed (non-fatal):", err)
+      );
     }
 
     // Mark as scraped if we processed at least some documents successfully,
@@ -107,4 +117,39 @@ export async function runScrapers(
   }
 
   return summary;
+}
+
+/**
+ * Generate AI summaries for documents that were just upserted.
+ * Runs fire-and-forget — errors are caught by the caller.
+ */
+async function summarizeUpsertedDocs(
+  ids: string[],
+  townshipId: string
+): Promise<void> {
+  const { generateDocumentSummary, isSummarizable } = await import(
+    "../src/lib/ai/summarize"
+  );
+  const { setDocumentSummary, getDocumentsNeedingSummary } = await import(
+    "../src/lib/db/documents"
+  );
+
+  // Fetch back DB rows so we have canonical content + IDs
+  const needsSummary = await getDocumentsNeedingSummary({ townshipId, limit: 100 });
+  const inThisRun = needsSummary.filter((d) => ids.includes(d.id));
+
+  for (const doc of inThisRun) {
+    if (!isSummarizable(doc.content)) continue;
+    try {
+      const summary = await generateDocumentSummary({
+        title: doc.title,
+        type: doc.type,
+        date: doc.date,
+        content: doc.content!,
+      });
+      if (summary) await setDocumentSummary(doc.id, summary);
+    } catch (err) {
+      console.warn(`[orchestrator] Summary failed for ${doc.id}:`, err);
+    }
+  }
 }

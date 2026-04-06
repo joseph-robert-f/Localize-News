@@ -34,6 +34,7 @@ export interface TownshipDocument {
   source_url: string;
   content: string | null;        // extracted text, if available
   file_url: string | null;       // original PDF/file link, if available
+  ai_summary: string | null;     // Claude-generated 2–3 sentence summary
   scraped_at: string;
   created_at: string;
 }
