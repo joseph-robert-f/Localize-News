@@ -8,6 +8,10 @@
  *
  * It does NOT write to the DB itself — it calls lib/db helpers to persist
  * the ScraperResult returned by the pipeline.
+ *
+ * Routing priority:
+ *   1. If a hand-crafted scraper is registered for the township's hostname → use it
+ *   2. Otherwise → fall back to the generic search-driven pipeline
  */
 
 import { runScraperPipeline } from "./pipeline";
@@ -42,6 +46,10 @@ export async function runScrapers(
 ): Promise<OrchestratorResult> {
   const { upsertDocuments } = await import("../src/lib/db/documents");
   const { markTownshipScraped } = await import("../src/lib/db/townships");
+  const { registerAll, getScraperForUrl } = await import("./registry");
+
+  // Register all hand-crafted scrapers once before the loop
+  await registerAll();
 
   const trigger = opts.trigger ?? "manual";
   const summary: OrchestratorResult = {
@@ -53,14 +61,22 @@ export async function runScrapers(
 
   for (const township of townships) {
     console.log(`[orchestrator:${trigger}] Scraping ${township.name}, ${township.state}…`);
+
     let scraperResult: ScraperResult;
     try {
-      scraperResult = await runScraperPipeline({
-        townshipId: township.id,
-        townshipName: township.name,
-        websiteUrl: township.website_url,
-        state: township.state,
-      });
+      const specificScraper = getScraperForUrl(township.website_url);
+      if (specificScraper) {
+        console.log(`[orchestrator] Using hand-crafted scraper for ${township.website_url}`);
+        scraperResult = await specificScraper(township.id);
+      } else {
+        console.log(`[orchestrator] No specific scraper found — using generic pipeline`);
+        scraperResult = await runScraperPipeline({
+          townshipId: township.id,
+          townshipName: township.name,
+          websiteUrl: township.website_url,
+          state: township.state,
+        });
+      }
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       console.error(`[orchestrator] Pipeline threw for ${township.id}:`, err);
