@@ -24,7 +24,7 @@ export async function GET(
 
   const rawType = searchParams.get("type");
   const type: DocumentType | undefined =
-    rawType && VALID_TYPES.has(rawType) ? (rawType as DocumentType) : undefined;
+    rawType && VALID_TYPES.has(rawType) ? (rawType as unknown as DocumentType) : undefined;
 
   const rawPageSize = parseInt(searchParams.get("pageSize") ?? String(PAGE_SIZE), 10);
   const pageSize = Math.min(Math.max(rawPageSize, 1), 100);
