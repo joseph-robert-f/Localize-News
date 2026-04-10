@@ -115,7 +115,7 @@ export async function extractPdfText(buffer: Buffer): Promise<ExtractionResult> 
     const { PDFParse } = await import("pdf-parse");
     parser = new PDFParse({ data: buffer });
     const result = await (
-      parser as { getText(): Promise<{ text: string; total?: number }> }
+      parser as unknown as { getText(): Promise<{ text: string; total?: number }> }
     ).getText();
     const text = result.text.trim();
     if (!text) {
