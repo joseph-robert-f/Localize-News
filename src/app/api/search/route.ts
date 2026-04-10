@@ -15,7 +15,7 @@ import { searchDocumentsWithTownship } from "@/lib/db/documents";
 import { DOCUMENT_TYPES } from "@/lib/db/types";
 import type { DocumentType } from "@/lib/db/types";
 
-const VALID_TYPES = new Set<DocumentType>(DOCUMENT_TYPES);
+const VALID_TYPES = new Set<string>(DOCUMENT_TYPES);
 const MAX_QUERY_LENGTH = 500;
 
 export async function GET(req: NextRequest) {
