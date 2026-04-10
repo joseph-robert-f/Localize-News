@@ -110,13 +110,11 @@ export async function fetchBuffer(url: string): Promise<Buffer | null> {
  * Returns null if extraction fails or the PDF has no selectable text.
  */
 export async function extractPdfText(buffer: Buffer): Promise<ExtractionResult> {
-  let parser: { destroy(): Promise<void> } | null = null;
+  let parser: { destroy(): Promise<void>; getText(): Promise<{ text: string; total?: number }> } | null = null;
   try {
     const { PDFParse } = await import("pdf-parse");
     parser = new PDFParse({ data: buffer });
-    const result = await (
-      parser as { getText(): Promise<{ text: string; total?: number }> }
-    ).getText();
+    const result = await parser.getText();
     const text = result.text.trim();
     if (!text) {
       return { text: null, method: "pdf-parse", pageCount: result.total };
