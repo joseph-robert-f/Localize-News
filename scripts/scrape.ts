@@ -19,11 +19,11 @@
 import path from "path";
 import { fileURLToPath } from "url";
 
-// Make src/ importable via relative paths
+// ── Make src/ importable via relative paths ────────────────────────────────
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 process.chdir(path.resolve(__dirname, ".."));
 
-// Validate required env vars early
+// ── Validate required env vars early ──────────────────────────────────────
 const requiredEnv = ["NEXT_PUBLIC_SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"];
 for (const key of requiredEnv) {
   if (!process.env[key]) {
@@ -32,21 +32,23 @@ for (const key of requiredEnv) {
   }
 }
 
-// Lazy imports (after env check)
-const { getActiveTownships, getTownshipById } = await import(
-  "../src/lib/db/townships.js"
-);
-const { startScrapeRun, finishScrapeRun } = await import(
-  "../src/lib/db/scrapeRuns.js"
-);
-const { runScrapers } = await import("../scrapers/index.js");
+// ── Wrap in async IIFE so dynamic imports work in CommonJS context ─────────
+(async () => {
+  // Lazy imports (after env check)
+  const { getActiveTownships, getTownshipById } = await import(
+    "../src/lib/db/townships.js"
+  );
+  const { startScrapeRun, finishScrapeRun } = await import(
+    "../src/lib/db/scrapeRuns.js"
+  );
+  const { runScrapers } = await import("../scrapers/index.js");
 
-// Config from env
-const townshipId = process.env.TOWNSHIP_ID || undefined;
-const force = process.env.FORCE_SCRAPE === "true";
-const trigger = "cron" as const;
+  // ── Config from env ──────────────────────────────────────────────────────
+  const townshipId = process.env.TOWNSHIP_ID || undefined;
+  const force = process.env.FORCE_SCRAPE === "true";
+  const trigger = "cron";
 
-async function main() {
+  // ── Main ─────────────────────────────────────────────────────────────────
   console.log("=".repeat(60));
   console.log("[scrape] GitHub Actions scraper starting");
   console.log(`  township: ${townshipId ?? "all active"}`);
@@ -54,7 +56,7 @@ async function main() {
   console.log(`  time:     ${new Date().toISOString()}`);
   console.log("=".repeat(60));
 
-  // Resolve townships
+  // ── Resolve townships ────────────────────────────────────────────────────
   let townships;
   if (townshipId) {
     const t = await getTownshipById(townshipId);
@@ -68,15 +70,15 @@ async function main() {
   }
 
   if (townships.length === 0) {
-    console.log("[scrape] No active townships found - nothing to do.");
+    console.log("[scrape] No active townships found — nothing to do.");
     return;
   }
   console.log(`[scrape] ${townships.length} township(s) to scrape:`);
   for (const t of townships) {
-    console.log(`  * ${t.name}, ${t.state} - ${t.website_url}`);
+    console.log(`  • ${t.name}, ${t.state} — ${t.website_url}`);
   }
 
-  // Start run log in Supabase
+  // ── Start run log in Supabase ────────────────────────────────────────────
   const runId = await startScrapeRun(townshipId ?? null, trigger).catch(
     (err) => {
       console.warn("[scrape] Could not create scrape_run log:", err);
@@ -84,7 +86,7 @@ async function main() {
     }
   );
 
-  // Execute pipeline
+  // ── Execute pipeline ─────────────────────────────────────────────────────
   let summary;
   try {
     summary = await runScrapers(townships, { force, trigger, townshipId });
@@ -102,7 +104,7 @@ async function main() {
     process.exit(1);
   }
 
-  // Finish run log
+  // ── Finish run log ───────────────────────────────────────────────────────
   if (runId) {
     await finishScrapeRun(runId, {
       status: summary.errors.length === 0 ? "success" : "error",
@@ -117,7 +119,7 @@ async function main() {
     }).catch(() => {});
   }
 
-  // Summary
+  // ── Summary ──────────────────────────────────────────────────────────────
   console.log("\n" + "=".repeat(60));
   console.log("[scrape] Run complete");
   console.log(`  Townships scraped:   ${summary.ran}`);
@@ -134,9 +136,7 @@ async function main() {
   }
 
   console.log("=".repeat(60));
-}
-
-main().catch((err) => {
+})().catch((err) => {
   console.error("[scrape] Unhandled error:", err);
   process.exit(1);
 });
