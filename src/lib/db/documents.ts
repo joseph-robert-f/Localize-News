@@ -158,9 +158,10 @@ export async function searchDocumentsWithTownship(
   if (error) throw new Error(`searchDocumentsWithTownship: ${error.message}`);
 
   return (data ?? []).map((row) => {
-    const { townships: t, ...doc } = row as typeof row & {
+    const typedRow = row as Record<string, unknown> & {
       townships: { name: string; state: string; status: string };
     };
+    const { townships: t, ...doc } = typedRow;
     return {
       ...doc,
       township_name: t.name,
