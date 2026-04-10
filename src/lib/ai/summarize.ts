@@ -3,9 +3,6 @@ import Anthropic from "@anthropic-ai/sdk";
 export const MIN_SUMMARIZABLE_LENGTH = 200;
 const MAX_CONTENT_CHARS = 3_000;
 
-// Singleton client — instantiated once per process; reads ANTHROPIC_API_KEY from env.
-const client = new Anthropic();
-
 /** Returns true if the document has enough content to be worth summarizing. */
 export function isSummarizable(content: string | null): boolean {
   return content !== null && content.length >= MIN_SUMMARIZABLE_LENGTH;
@@ -23,6 +20,8 @@ export async function generateDocumentSummary(doc: {
 }): Promise<string | null> {
   const excerpt = doc.content.slice(0, MAX_CONTENT_CHARS);
 
+  // Instantiated here so missing ANTHROPIC_API_KEY fails at call time, not import time.
+  const client = new Anthropic();
   const response = await client.messages.create({
     model: "claude-haiku-4-5",
     max_tokens: 256,

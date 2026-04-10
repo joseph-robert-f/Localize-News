@@ -16,8 +16,8 @@ export default async function HomePage() {
       getActiveTownships(),
       getTotalDocumentCount(),
     ]);
-  } catch {
-    // render with empty state on error
+  } catch (err) {
+    console.error("[HomePage] Failed to load data:", err);
   }
 
   const stateCount = new Set(townships.map((t) => t.state)).size;

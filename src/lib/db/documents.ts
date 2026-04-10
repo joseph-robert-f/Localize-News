@@ -1,6 +1,7 @@
 import { createServerClient } from "../supabase";
 import type { TownshipDocument, DocumentType } from "./types";
 import { DOCUMENT_TYPES } from "./types";
+import { MIN_SUMMARIZABLE_LENGTH } from "../ai/summarize";
 
 export const PAGE_SIZE = 24; // default page size for document lists
 
@@ -88,9 +89,6 @@ export async function upsertDocuments(
   return { inserted: data?.length ?? 0, ids: data?.map((r) => r.id) ?? [] };
 }
 
-/** Minimum content length before we attempt to summarize a document. */
-const MIN_CONTENT_FOR_SUMMARY = 200;
-
 /** Persist an AI-generated summary for a document. */
 export async function setDocumentSummary(id: string, summary: string): Promise<void> {
   const db = createServerClient();
@@ -116,7 +114,7 @@ export async function getDocumentsNeedingSummary(
   const { data, error } = await q;
   if (error) throw new Error(`getDocumentsNeedingSummary: ${error.message}`);
   // Filter by minimum content length in JS (PostgREST has no char_length filter)
-  return (data ?? []).filter((d) => (d.content?.length ?? 0) >= MIN_CONTENT_FOR_SUMMARY);
+  return (data ?? []).filter((d) => (d.content?.length ?? 0) >= MIN_SUMMARIZABLE_LENGTH);
 }
 
 /** Return the most recent minutes/agenda documents that have an AI summary. */

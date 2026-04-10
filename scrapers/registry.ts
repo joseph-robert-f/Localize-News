@@ -20,8 +20,10 @@ const REGISTRY: Record<string, ScraperFn> = {};
 /**
  * Lazily load and register all hand-crafted scrapers.
  * Called once per orchestrator run before the township loop.
+ * Idempotent — safe to call multiple times (no-op if already registered).
  */
 export async function registerAll(): Promise<void> {
+  if (Object.keys(REGISTRY).length > 0) return;
   const [
     { scrapeSpringfieldIL },
     { scrapeNapervilleIL },
