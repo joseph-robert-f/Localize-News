@@ -62,14 +62,38 @@ export interface ScrapeRun {
   finished_at: string | null;
 }
 
-/** Minimal DB type wrapper for Supabase generics — expand as the schema grows. */
+/** DB type wrapper for Supabase generics. Must include Relationships + schema-level keys for v2 type resolution. */
 export interface Database {
   public: {
     Tables: {
-      townships: { Row: Township; Insert: Omit<Township, "id" | "created_at" | "updated_at">; Update: Partial<Township> };
-      documents: { Row: TownshipDocument; Insert: Omit<TownshipDocument, "id" | "created_at">; Update: Partial<TownshipDocument> };
-      scrape_requests: { Row: ScrapeRequest; Insert: Omit<ScrapeRequest, "id" | "created_at">; Update: Partial<ScrapeRequest> };
-      scrape_runs: { Row: ScrapeRun; Insert: Omit<ScrapeRun, "id">; Update: Partial<ScrapeRun> };
+      townships: {
+        Row: Township;
+        Insert: Omit<Township, "id" | "created_at" | "updated_at">;
+        Update: Partial<Township>;
+        Relationships: [];
+      };
+      documents: {
+        Row: TownshipDocument;
+        Insert: Omit<TownshipDocument, "id" | "created_at">;
+        Update: Partial<TownshipDocument>;
+        Relationships: [];
+      };
+      scrape_requests: {
+        Row: ScrapeRequest;
+        Insert: Omit<ScrapeRequest, "id" | "created_at">;
+        Update: Partial<ScrapeRequest>;
+        Relationships: [];
+      };
+      scrape_runs: {
+        Row: ScrapeRun;
+        Insert: Omit<ScrapeRun, "id">;
+        Update: Partial<ScrapeRun>;
+        Relationships: [];
+      };
     };
+    Views: Record<never, never>;
+    Functions: Record<never, never>;
+    Enums: Record<never, never>;
+    CompositeTypes: Record<never, never>;
   };
 }
