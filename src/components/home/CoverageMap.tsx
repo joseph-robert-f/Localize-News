@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { ComposableMap, Geographies, Geography } from "react-simple-maps";
 
 // State full-name → abbreviation (matches us-atlas TopoJSON property names)
@@ -52,7 +53,13 @@ function hoverFill(count: number): string {
 }
 
 export function CoverageMap({ coverageByState, townshipsByState }: Props) {
+  const router = useRouter();
   const [tooltip, setTooltip] = useState<TooltipData | null>(null);
+
+  const handleClick = useCallback((geo: { properties: { name: string } }) => {
+    const stateAbbr = STATE_ABBR[geo.properties.name];
+    if (stateAbbr) router.push(`/coverage/${stateAbbr.toLowerCase()}`);
+  }, [router]);
 
   const handleMouseEnter = useCallback(
     (geo: { properties: { name: string } }, event: React.MouseEvent) => {
@@ -101,10 +108,11 @@ export function CoverageMap({ coverageByState, townshipsByState }: Props) {
                     stroke="#fafaf8"
                     strokeWidth={0.75}
                     style={{
-                      default: { outline: "none" },
+                      default: { outline: "none", cursor: "pointer" },
                       hover:   { outline: "none", fill: hoverFill(count), cursor: "pointer" },
                       pressed: { outline: "none" },
                     }}
+                    onClick={() => handleClick(geo)}
                     onMouseEnter={(e) => handleMouseEnter(geo, e)}
                     onMouseMove={handleMouseMove}
                     onMouseLeave={handleMouseLeave}
@@ -121,6 +129,7 @@ export function CoverageMap({ coverageByState, townshipsByState }: Props) {
         <span className="font-medium text-stone-600 dark:text-stone-400">
           {coveredCount} state{coveredCount !== 1 ? "s" : ""} covered
         </span>
+        <span className="text-stone-400">· click a state to explore</span>
         {[
           { color: "#e7e5e4", label: "None" },
           { color: "#fef3c7", label: "1–2" },

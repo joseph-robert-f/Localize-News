@@ -46,6 +46,19 @@ export async function getTownshipById(id: string): Promise<Township | null> {
   return data;
 }
 
+/** Fetch active townships for a specific state, ordered by county + name. */
+export async function getTownshipsByState(state: string): Promise<Township[]> {
+  const db = createServerClient();
+  const { data, error } = await db
+    .from("townships")
+    .select("*")
+    .eq("status", "active")
+    .eq("state", state.toUpperCase())
+    .order("name");
+  if (error) throw new Error(`getTownshipsByState: ${error.message}`);
+  return data ?? [];
+}
+
 /** Fetch all townships (any status) — admin use only. */
 export async function getAllTownships(): Promise<Township[]> {
   const db = createServerClient();
@@ -169,7 +182,7 @@ export async function getTownshipInsights(
 
 /** Insert a new township. Returns the created record. */
 export async function createTownship(
-  data: Pick<Township, "name" | "state" | "website_url"> & { status?: TownshipStatus }
+  data: Pick<Township, "name" | "state" | "website_url"> & { status?: TownshipStatus; county?: string | null }
 ): Promise<Township> {
   const db = createServerClient();
   const { data: created, error } = await db

@@ -21,6 +21,7 @@ export type Township = {
   id: string;
   name: string;
   state: string;
+  county: string | null;
   website_url: string;
   status: TownshipStatus;
   last_scraped_at: string | null;
@@ -77,7 +78,8 @@ export type Database = {
       townships: {
         Row: Township;
         // last_scraped_at/next_scrape_at/ai_insights/insights_updated_at are NULL by default; consecutive_empty_runs defaults to 0
-        Insert: Omit<Township, "id" | "created_at" | "updated_at" | "last_scraped_at" | "next_scrape_at" | "consecutive_empty_runs" | "ai_insights" | "insights_updated_at"> & {
+        Insert: Omit<Township, "id" | "created_at" | "updated_at" | "last_scraped_at" | "next_scrape_at" | "consecutive_empty_runs" | "ai_insights" | "insights_updated_at" | "county"> & {
+          county?: string | null;
           last_scraped_at?: string | null;
           next_scrape_at?: string | null;
           consecutive_empty_runs?: number;

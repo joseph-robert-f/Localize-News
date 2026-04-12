@@ -76,6 +76,7 @@ for (const key of requiredEnv) {
       await createTownship({
         name: entry.name,
         state: entry.state,
+        county: entry.county ?? null,
         website_url: entry.website_url,
         status,
       });
