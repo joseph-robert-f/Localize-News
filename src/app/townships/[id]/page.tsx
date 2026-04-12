@@ -15,6 +15,7 @@ import { DocumentTimeline } from "@/components/township/DocumentTimeline";
 import { TypeBreakdown } from "@/components/township/TypeBreakdown";
 import { RecentByType } from "@/components/township/RecentByType";
 import { MeetingDigest } from "@/components/township/MeetingDigest";
+import { AreaInsightsCard } from "@/components/township/AreaInsightsCard";
 import { formatDate } from "@/lib/utils";
 import { DOCUMENT_TYPES } from "@/lib/db/types";
 import type { DocumentType } from "@/lib/db/types";
@@ -121,6 +122,12 @@ export default async function TownshipPage({
         {showDashboard ? (
           /* ── Overview / Dashboard ─────────────────────────────── */
           <div className="space-y-8">
+            {/* AI area insights */}
+            <AreaInsightsCard
+              insights={township.ai_insights}
+              updatedAt={township.insights_updated_at}
+            />
+
             {/* AI-generated meeting digests */}
             {recentSummaries.length > 0 && (
               <div>

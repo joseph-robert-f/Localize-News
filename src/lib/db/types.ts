@@ -26,6 +26,8 @@ export type Township = {
   last_scraped_at: string | null;
   next_scrape_at: string | null;
   consecutive_empty_runs: number;
+  ai_insights: string | null;
+  insights_updated_at: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -73,11 +75,13 @@ export type Database = {
     Tables: {
       townships: {
         Row: Township;
-        // last_scraped_at/next_scrape_at are NULL by default; consecutive_empty_runs defaults to 0
-        Insert: Omit<Township, "id" | "created_at" | "updated_at" | "last_scraped_at" | "next_scrape_at" | "consecutive_empty_runs"> & {
+        // last_scraped_at/next_scrape_at/ai_insights/insights_updated_at are NULL by default; consecutive_empty_runs defaults to 0
+        Insert: Omit<Township, "id" | "created_at" | "updated_at" | "last_scraped_at" | "next_scrape_at" | "consecutive_empty_runs" | "ai_insights" | "insights_updated_at"> & {
           last_scraped_at?: string | null;
           next_scrape_at?: string | null;
           consecutive_empty_runs?: number;
+          ai_insights?: string | null;
+          insights_updated_at?: string | null;
         };
         Update: Partial<Township>;
         Relationships: [];

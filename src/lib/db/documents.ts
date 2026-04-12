@@ -135,6 +135,26 @@ export async function getRecentSummaries(
   return data ?? [];
 }
 
+/**
+ * Return the most recent documents for a township that have content or an AI summary.
+ * Used by the area insights generator to feed Claude cross-document synthesis.
+ */
+export async function getRecentDocumentsWithContent(
+  townshipId: string,
+  limit = 10
+): Promise<TownshipDocument[]> {
+  const db = createServerClient();
+  const { data, error } = await db
+    .from("documents")
+    .select("*")
+    .eq("township_id", townshipId)
+    .or("content.not.is.null,ai_summary.not.is.null")
+    .order("date", { ascending: false, nullsFirst: false })
+    .limit(limit);
+  if (error) throw new Error(`getRecentDocumentsWithContent: ${error.message}`);
+  return data ?? [];
+}
+
 /** Count documents grouped by type for a township. */
 export async function getDocumentCounts(
   townshipId: string
@@ -252,7 +272,7 @@ export interface DocumentWithTownship extends TownshipDocument {
 
 export async function searchDocumentsWithTownship(
   query: string,
-  opts: { type?: DocumentType; limit?: number } = {}
+  opts: { type?: DocumentType; limit?: number; days?: number } = {}
 ): Promise<DocumentWithTownship[]> {
   if (!query.trim()) return [];
 
@@ -270,6 +290,12 @@ export async function searchDocumentsWithTownship(
     .limit(opts.limit ?? 30);
 
   if (opts.type) q = q.eq("type", opts.type);
+
+  if (opts.days) {
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - opts.days);
+    q = q.gte("date", cutoff.toISOString().slice(0, 10));
+  }
 
   const { data, error } = await q;
   if (error) throw new Error(`searchDocumentsWithTownship: ${error.message}`);

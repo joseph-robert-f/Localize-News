@@ -142,6 +142,13 @@ export async function runScrapers(
       );
     }
 
+    // Fire-and-forget area insights — synthesizes recent docs into a township-level overview
+    if (inserted > 0 && process.env.ANTHROPIC_API_KEY) {
+      generateInsightsForTownship(township).catch((err) =>
+        console.warn("[orchestrator] Area insights failed (non-fatal):", err)
+      );
+    }
+
     // Always advance the queue — pass actual counts so back-off is correct
     await markTownshipScraped(township.id, {
       newDocsInserted: inserted,
@@ -156,6 +163,20 @@ export async function runScrapers(
   }
 
   return summary;
+}
+
+/**
+ * Generate a township-level area insight from recent documents.
+ * Runs fire-and-forget — errors are caught by the caller.
+ */
+async function generateInsightsForTownship(township: Township): Promise<void> {
+  const { generateAreaInsights } = await import("../src/lib/ai/insights");
+  const { setTownshipInsights } = await import("../src/lib/db/townships");
+  const { getRecentDocumentsWithContent } = await import("../src/lib/db/documents");
+
+  const docs = await getRecentDocumentsWithContent(township.id, 10);
+  const insights = await generateAreaInsights(township.name, township.state, docs);
+  if (insights) await setTownshipInsights(township.id, insights);
 }
 
 /**

@@ -139,6 +139,34 @@ export async function bumpTownshipPriority(id: string): Promise<void> {
   if (error) throw new Error(`bumpTownshipPriority: ${error.message}`);
 }
 
+/** Persist AI area insights for a township. */
+export async function setTownshipInsights(id: string, insights: string): Promise<void> {
+  const db = createServerClient();
+  const { error } = await db
+    .from("townships")
+    .update({
+      ai_insights: insights,
+      insights_updated_at: new Date().toISOString(),
+    })
+    .eq("id", id);
+  if (error) throw new Error(`setTownshipInsights: ${error.message}`);
+}
+
+/** Read AI area insights for a township. Returns null if none generated yet. */
+export async function getTownshipInsights(
+  id: string
+): Promise<{ ai_insights: string | null; insights_updated_at: string | null } | null> {
+  const db = createServerClient();
+  const { data, error } = await db
+    .from("townships")
+    .select("ai_insights, insights_updated_at")
+    .eq("id", id)
+    .single();
+  if (error?.code === "PGRST116") return null;
+  if (error) throw new Error(`getTownshipInsights: ${error.message}`);
+  return data;
+}
+
 /** Insert a new township. Returns the created record. */
 export async function createTownship(
   data: Pick<Township, "name" | "state" | "website_url"> & { status?: TownshipStatus }

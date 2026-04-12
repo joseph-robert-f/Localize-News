@@ -5,16 +5,34 @@ import { DOCUMENT_TYPES } from "@/lib/db/types";
 import type { DocumentType } from "@/lib/db/types";
 import type { DocumentWithTownship } from "@/lib/db/documents";
 
+const DATE_OPTIONS = [
+  { label: "All time", days: undefined },
+  { label: "30 days", days: 30 },
+  { label: "90 days", days: 90 },
+  { label: "1 year", days: 365 },
+] as const;
+
+function buildHref(q: string, type?: string, days?: number): string {
+  const params = new URLSearchParams({ q });
+  if (type) params.set("type", type);
+  if (days) params.set("days", String(days));
+  return `/search?${params.toString()}`;
+}
+
 export default async function SearchPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; type?: string }>;
+  searchParams: Promise<{ q?: string; type?: string; days?: string }>;
 }) {
-  const { q: rawQ, type: rawType } = await searchParams;
+  const { q: rawQ, type: rawType, days: rawDays } = await searchParams;
   const query = rawQ?.trim() ?? "";
   const selectedType =
     rawType && (DOCUMENT_TYPES as readonly string[]).includes(rawType)
       ? (rawType as DocumentType)
+      : undefined;
+  const selectedDays =
+    rawDays && ["30", "90", "365"].includes(rawDays)
+      ? Number(rawDays)
       : undefined;
 
   let results: DocumentWithTownship[] = [];
@@ -22,7 +40,11 @@ export default async function SearchPage({
 
   if (query.length >= 2) {
     try {
-      results = await searchDocumentsWithTownship(query, { type: selectedType, limit: 30 });
+      results = await searchDocumentsWithTownship(query, {
+        type: selectedType,
+        limit: 30,
+        days: selectedDays,
+      });
     } catch (err) {
       fetchError = err instanceof Error ? err.message : "Search failed.";
     }
@@ -76,33 +98,50 @@ export default async function SearchPage({
           </div>
         </form>
 
-        {/* Type filter pills */}
+        {/* Type + date filter pills */}
         {query.length >= 2 && (
-          <nav className="mb-6 flex flex-wrap gap-2">
-            <Link
-              href={`/search?q=${encodeURIComponent(query)}`}
-              className={
-                !selectedType
-                  ? "rounded-full bg-zinc-900 px-3 py-1 text-sm font-medium text-white dark:bg-zinc-100 dark:text-zinc-900"
-                  : "rounded-full border border-zinc-300 px-3 py-1 text-sm text-zinc-600 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-800"
-              }
-            >
-              All types
-            </Link>
-            {DOCUMENT_TYPES.map((t) => (
+          <div className="mb-6 flex flex-col gap-2">
+            <nav className="flex flex-wrap gap-2">
               <Link
-                key={t}
-                href={`/search?q=${encodeURIComponent(query)}&type=${t}`}
+                href={buildHref(query, undefined, selectedDays)}
                 className={
-                  selectedType === t
-                    ? "rounded-full bg-zinc-900 px-3 py-1 text-sm font-medium capitalize text-white dark:bg-zinc-100 dark:text-zinc-900"
-                    : "rounded-full border border-zinc-300 px-3 py-1 text-sm capitalize text-zinc-600 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-800"
+                  !selectedType
+                    ? "rounded-full bg-zinc-900 px-3 py-1 text-sm font-medium text-white dark:bg-zinc-100 dark:text-zinc-900"
+                    : "rounded-full border border-zinc-300 px-3 py-1 text-sm text-zinc-600 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-800"
                 }
               >
-                {t}
+                All types
               </Link>
-            ))}
-          </nav>
+              {DOCUMENT_TYPES.map((t) => (
+                <Link
+                  key={t}
+                  href={buildHref(query, t, selectedDays)}
+                  className={
+                    selectedType === t
+                      ? "rounded-full bg-zinc-900 px-3 py-1 text-sm font-medium capitalize text-white dark:bg-zinc-100 dark:text-zinc-900"
+                      : "rounded-full border border-zinc-300 px-3 py-1 text-sm capitalize text-zinc-600 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-800"
+                  }
+                >
+                  {t}
+                </Link>
+              ))}
+            </nav>
+            <nav className="flex flex-wrap gap-2">
+              {DATE_OPTIONS.map(({ label, days }) => (
+                <Link
+                  key={label}
+                  href={buildHref(query, selectedType, days)}
+                  className={
+                    selectedDays === days
+                      ? "rounded-full bg-zinc-700 px-3 py-1 text-sm font-medium text-white dark:bg-zinc-300 dark:text-zinc-900"
+                      : "rounded-full border border-zinc-200 px-3 py-1 text-sm text-zinc-500 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-800"
+                  }
+                >
+                  {label}
+                </Link>
+              ))}
+            </nav>
+          </div>
         )}
 
         {/* Results */}
