@@ -1,11 +1,13 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import * as topojson from "topojson-client";
 import { geoMercator, geoPath } from "d3-geo";
 import type { Topology, GeometryCollection } from "topojson-specification";
 import type { GeoPermissibleObjects } from "d3-geo";
 import { STATE_FIPS } from "@/lib/constants/states";
+import { countySlug, countyLabel } from "@/lib/utils";
 
 const MAP_W = 800;
 const MAP_H = 500;
@@ -25,7 +27,8 @@ type TooltipData = {
   y: number;
 };
 
-function fillColor(count: number): string {
+function fillColor(count: number, dimmed = false): string {
+  if (dimmed) return "#f5f5f4"; // stone-100 — context counties on county page
   if (count === 0) return "#e7e5e4";
   if (count === 1) return "#fef3c7";
   if (count <= 3) return "#fde68a";
@@ -45,17 +48,36 @@ function hoverFill(count: number): string {
 
 type Props = {
   stateAbbr: string;
-  /** county name (no "County" suffix) → count of indexed municipalities */
+  /** county name → count of indexed municipalities */
   coverageByCounty: Record<string, number>;
   /** county name → list of municipality names */
   municipalsByCounty: Record<string, string[]>;
+  /**
+   * When set, this county is highlighted with a distinct border.
+   * All other counties are shown in a muted context colour.
+   * Used on the county detail page to show location within the state.
+   */
+  highlightedCounty?: string;
+  /** When true, clicking a county navigates to its coverage page. Default true. */
+  navigable?: boolean;
 };
 
-export function StateCountyMap({ stateAbbr, coverageByCounty, municipalsByCounty }: Props) {
+export function StateCountyMap({
+  stateAbbr,
+  coverageByCounty,
+  municipalsByCounty,
+  highlightedCounty,
+  navigable = true,
+}: Props) {
+  const router = useRouter();
   const [paths, setPaths] = useState<CountyPath[]>([]);
   const [loading, setLoading] = useState(true);
   const [tooltip, setTooltip] = useState<TooltipData | null>(null);
   const [hovered, setHovered] = useState<string | null>(null);
+
+  const cl = countyLabel(stateAbbr);
+  // Normalised name of the highlighted county for comparison
+  const highlightedNorm = highlightedCounty?.toLowerCase();
 
   useEffect(() => {
     const fips = STATE_FIPS[stateAbbr];
@@ -85,7 +107,6 @@ export function StateCountyMap({ stateAbbr, coverageByCounty, municipalsByCounty
         setPaths(
           stateCounties.map((f) => {
             const name: string = (f.properties as Record<string, string>)?.name ?? "Unknown";
-            // Case-insensitive lookup against our data
             const normalizedName = name.toLowerCase();
             const matchedCount = Object.entries(coverageByCounty).find(
               ([k]) => k.toLowerCase() === normalizedName
@@ -125,7 +146,13 @@ export function StateCountyMap({ stateAbbr, coverageByCounty, municipalsByCounty
     setTooltip(null);
   }, []);
 
+  const handleClick = useCallback((path: CountyPath) => {
+    if (!navigable) return;
+    router.push(`/coverage/${stateAbbr.toLowerCase()}/${countySlug(path.name)}`);
+  }, [navigable, router, stateAbbr]);
+
   const coveredCounties = paths.filter((p) => p.count > 0).length;
+  const isContextMode = !!highlightedCounty;
 
   return (
     <div className="relative">
@@ -144,44 +171,64 @@ export function StateCountyMap({ stateAbbr, coverageByCounty, municipalsByCounty
             style={{ width: "100%", height: "auto" }}
             onMouseMove={handleMouseMove}
           >
-            {paths.map((p) => (
-              <path
-                key={p.id}
-                d={p.d ?? ""}
-                fill={hovered === p.id ? hoverFill(p.count) : fillColor(p.count)}
-                stroke="#fafaf8"
-                strokeWidth={0.8}
-                style={{ cursor: p.count > 0 ? "pointer" : "default", transition: "fill 0.1s" }}
-                onMouseEnter={(e) => handleMouseEnter(p, e)}
-                onMouseLeave={handleMouseLeave}
-              />
-            ))}
+            {paths.map((p) => {
+              const isHighlighted = highlightedNorm
+                ? p.name.toLowerCase() === highlightedNorm
+                : false;
+              const isDimmed = isContextMode && !isHighlighted;
+
+              return (
+                <path
+                  key={p.id}
+                  d={p.d ?? ""}
+                  fill={
+                    isHighlighted
+                      ? (p.count > 0 ? hoverFill(p.count) : "#d6d3d1")
+                      : hovered === p.id
+                      ? hoverFill(p.count)
+                      : fillColor(p.count, isDimmed)
+                  }
+                  stroke={isHighlighted ? "#78350f" : "#fafaf8"}
+                  strokeWidth={isHighlighted ? 2 : 0.8}
+                  style={{
+                    cursor: navigable ? "pointer" : "default",
+                    transition: "fill 0.1s",
+                  }}
+                  onClick={() => handleClick(p)}
+                  onMouseEnter={(e) => handleMouseEnter(p, e)}
+                  onMouseLeave={handleMouseLeave}
+                />
+              );
+            })}
           </svg>
         )}
       </div>
 
-      {/* Legend */}
-      <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-stone-500">
-        <span className="font-medium text-stone-600 dark:text-stone-400">
-          {coveredCounties} of {paths.length} counties covered
-        </span>
-        {[
-          { color: "#e7e5e4", label: "None" },
-          { color: "#fef3c7", label: "1" },
-          { color: "#fde68a", label: "2–3" },
-          { color: "#fbbf24", label: "4–6" },
-          { color: "#d97706", label: "7–12" },
-          { color: "#92400e", label: "13+" },
-        ].map(({ color, label }) => (
-          <span key={label} className="flex items-center gap-1">
-            <span
-              className="inline-block h-3 w-3 rounded-sm border border-stone-200"
-              style={{ background: color }}
-            />
-            {label}
+      {/* Legend — hidden in context (highlight) mode */}
+      {!isContextMode && (
+        <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-stone-500">
+          <span className="font-medium text-stone-600 dark:text-stone-400">
+            {coveredCounties} of {paths.length} {cl.toLowerCase()}s covered
           </span>
-        ))}
-      </div>
+          <span className="text-stone-400">· click a {cl.toLowerCase()} to explore</span>
+          {[
+            { color: "#e7e5e4", label: "None" },
+            { color: "#fef3c7", label: "1" },
+            { color: "#fde68a", label: "2–3" },
+            { color: "#fbbf24", label: "4–6" },
+            { color: "#d97706", label: "7–12" },
+            { color: "#92400e", label: "13+" },
+          ].map(({ color, label }) => (
+            <span key={label} className="flex items-center gap-1">
+              <span
+                className="inline-block h-3 w-3 rounded-sm border border-stone-200"
+                style={{ background: color }}
+              />
+              {label}
+            </span>
+          ))}
+        </div>
+      )}
 
       {/* Tooltip */}
       {tooltip && (
@@ -190,12 +237,12 @@ export function StateCountyMap({ stateAbbr, coverageByCounty, municipalsByCounty
           style={{ left: tooltip.x + 14, top: tooltip.y - 10 }}
         >
           <p className="font-semibold text-stone-900 dark:text-stone-100 text-sm">
-            {tooltip.name} County
+            {tooltip.name} {cl}
           </p>
           <p className="text-xs text-stone-500 mt-0.5">
             {tooltip.count === 0
-              ? "No coverage yet"
-              : `${tooltip.count} municipalit${tooltip.count === 1 ? "y" : "ies"}`}
+              ? `No coverage yet${navigable ? " — click to explore" : ""}`
+              : `${tooltip.count} municipalit${tooltip.count === 1 ? "y" : "ies"}${navigable ? " — click to explore" : ""}`}
           </p>
           {tooltip.municipalities.length > 0 && (
             <ul className="mt-1.5 space-y-0.5">

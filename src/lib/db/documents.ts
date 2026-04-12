@@ -275,6 +275,27 @@ export async function searchDocuments(
 }
 
 /** Count all indexed documents across active townships — used by the home page stats bar. */
+/**
+ * Return total document count for each of the given township IDs.
+ * Runs COUNT(*) queries in parallel — efficient for small sets (≤ 30 townships).
+ */
+export async function getTotalDocsByTownships(
+  townshipIds: string[]
+): Promise<Record<string, number>> {
+  if (townshipIds.length === 0) return {};
+  const db = createServerClient();
+  const entries = await Promise.all(
+    townshipIds.map(async (id) => {
+      const { count } = await db
+        .from("documents")
+        .select("id", { count: "exact", head: true })
+        .eq("township_id", id);
+      return [id, count ?? 0] as [string, number];
+    })
+  );
+  return Object.fromEntries(entries);
+}
+
 export async function getTotalDocumentCount(): Promise<number> {
   const db = createServerClient();
   const { count, error } = await db

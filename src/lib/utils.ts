@@ -47,6 +47,20 @@ export function capitalise(str: string): string {
 // ── Geographic taxonomy helpers ───────────────────────────────────────────────
 
 /**
+ * Convert a county name to a URL-safe slug.
+ *   "Northampton"  → "northampton"
+ *   "St. Louis"    → "st-louis"
+ *   "New York"     → "new-york"
+ */
+export function countySlug(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "");
+}
+
+/**
  * Human-readable label for a municipality's category.
  * "city" → "City", "township" → "Township", etc.
  */
