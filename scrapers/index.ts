@@ -120,8 +120,8 @@ export async function runScrapers(
             source_url: d.sourceUrl,
             content: d.content,
             file_url: d.fileUrl,
-            ai_summary: null,
             scraped_at: new Date().toISOString(),
+            // ai_summary and topics omitted — preserved on re-scrape, generated post-upsert
           }))
         );
         inserted = result.inserted;
@@ -139,6 +139,9 @@ export async function runScrapers(
     if (upsertedIds.length > 0 && process.env.ANTHROPIC_API_KEY) {
       summarizeUpsertedDocs(upsertedIds, township.id).catch((err) =>
         console.warn("[orchestrator] Summarization failed (non-fatal):", err)
+      );
+      extractTopicsForUpsertedDocs(upsertedIds, township.id).catch((err) =>
+        console.warn("[orchestrator] Topic extraction failed (non-fatal):", err)
       );
     }
 
@@ -210,6 +213,43 @@ async function summarizeUpsertedDocs(
       if (summary) await setDocumentSummary(doc.id, summary);
     } catch (err) {
       console.warn(`[orchestrator] Summary failed for ${doc.id}:`, err);
+    }
+  }
+}
+
+/**
+ * Extract topic tags for documents that were just upserted.
+ * Waits briefly for summarization to complete first so topics can use ai_summary as input.
+ * Runs fire-and-forget — errors are caught by the caller.
+ */
+async function extractTopicsForUpsertedDocs(
+  ids: string[],
+  townshipId: string
+): Promise<void> {
+  const { generateDocumentTopics } = await import("../src/lib/ai/topics");
+  const { setDocumentTopics, getDocumentsNeedingTopics } = await import(
+    "../src/lib/db/documents"
+  );
+
+  // Give summarization a head start — topics prefer ai_summary as input
+  await new Promise((resolve) => setTimeout(resolve, 5_000));
+
+  const needsTopics = await getDocumentsNeedingTopics({ townshipId, limit: 100 });
+  const inThisRun = needsTopics.filter((d) => ids.includes(d.id));
+
+  for (const doc of inThisRun) {
+    const content = doc.ai_summary ?? doc.content;
+    if (!content) continue;
+    try {
+      const topics = await generateDocumentTopics({
+        title: doc.title,
+        type: doc.type,
+        date: doc.date,
+        content,
+      });
+      if (topics) await setDocumentTopics(doc.id, topics);
+    } catch (err) {
+      console.warn(`[orchestrator] Topics failed for ${doc.id}:`, err);
     }
   }
 }

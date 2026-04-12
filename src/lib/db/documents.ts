@@ -84,7 +84,10 @@ function sanitizeText(text: string | null): string | null {
 
 /** Upsert a batch of documents for a township (idempotent — keyed on township_id + source_url). */
 export async function upsertDocuments(
-  docs: (Omit<TownshipDocument, "id" | "created_at" | "topics"> & { topics?: string[] | null })[]
+  docs: (Omit<TownshipDocument, "id" | "created_at" | "ai_summary" | "topics"> & {
+    ai_summary?: string | null;
+    topics?: string[] | null;
+  })[]
 ): Promise<{ inserted: number; ids: string[] }> {
   if (docs.length === 0) return { inserted: 0, ids: [] };
   const db = createServerClient();
@@ -92,7 +95,8 @@ export async function upsertDocuments(
     ...d,
     title: sanitizeText(d.title) ?? d.title,
     content: sanitizeText(d.content),
-    ai_summary: sanitizeText(d.ai_summary),
+    // Preserve existing ai_summary/topics on re-scrape — only set if explicitly provided
+    ai_summary: d.ai_summary !== undefined ? sanitizeText(d.ai_summary) : null,
     topics: d.topics ?? null,
   }));
   const { data, error } = await db
