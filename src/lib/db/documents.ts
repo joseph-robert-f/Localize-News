@@ -274,10 +274,9 @@ export async function searchDocumentsWithTownship(
   const { data, error } = await q;
   if (error) throw new Error(`searchDocumentsWithTownship: ${error.message}`);
 
+  type JoinedRow = TownshipDocument & { townships: { name: string; state: string; status: string } };
   return (data ?? []).map((row) => {
-    const { townships: t, ...doc } = row as typeof row & {
-      townships: { name: string; state: string; status: string };
-    };
+    const { townships: t, ...doc } = row as JoinedRow;
     return {
       ...doc,
       township_name: t.name,

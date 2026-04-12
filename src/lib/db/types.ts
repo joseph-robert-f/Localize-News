@@ -62,38 +62,88 @@ export interface ScrapeRun {
   finished_at: string | null;
 }
 
-/** DB type wrapper for Supabase generics. Must include Relationships + schema-level keys for v2 type resolution. */
+/**
+ * Converts an interface to a homomorphic mapped type.
+ * Required for Supabase v2 + TypeScript 5.9: the client's GenericSchema constraint
+ * uses `extends Record<string, unknown>`, which TS 5.9 only satisfies for mapped types,
+ * not for plain interfaces. Without this, Schema resolves to `never` and all db calls break.
+ */
+type AsRow<T> = { [K in keyof T]: T[K] };
+
+/**
+ * Insert shapes — omit DB-generated fields (id, created_at, updated_at) and mark
+ * nullable/DB-defaulted columns as optional so callers don't have to supply them.
+ */
+type TownshipInsert = {
+  name: string;
+  state: string;
+  website_url: string;
+  status?: TownshipStatus;
+  last_scraped_at?: string | null;
+};
+
+type DocumentInsert = {
+  township_id: string;
+  type: DocumentType;
+  title: string;
+  source_url: string;
+  scraped_at: string;
+  date?: string | null;
+  content?: string | null;
+  file_url?: string | null;
+  ai_summary?: string | null;
+};
+
+type ScrapeRequestInsert = {
+  township_name: string;
+  website_url: string;
+  status?: ScrapeRequestStatus;
+  contact_email?: string | null;
+  notes?: string | null;
+  reviewed_at?: string | null;
+};
+
+type ScrapeRunInsert = {
+  triggered_by: ScrapeRunTrigger;
+  township_id?: string | null;
+  status?: ScrapeRunStatus;
+  documents_found?: number;
+  documents_inserted?: number;
+  error_message?: string | null;
+  started_at?: string;
+  finished_at?: string | null;
+};
+
+/** DB type wrapper for Supabase generics (v2.101+ / TypeScript 5.9 compatible). */
 export interface Database {
   public: {
     Tables: {
       townships: {
-        Row: Township;
-        Insert: Omit<Township, "id" | "created_at" | "updated_at">;
-        Update: Partial<Township>;
+        Row: AsRow<Township>;
+        Insert: AsRow<TownshipInsert>;
+        Update: AsRow<Partial<Township>>;
         Relationships: [];
       };
       documents: {
-        Row: TownshipDocument;
-        Insert: Omit<TownshipDocument, "id" | "created_at">;
-        Update: Partial<TownshipDocument>;
+        Row: AsRow<TownshipDocument>;
+        Insert: AsRow<DocumentInsert>;
+        Update: AsRow<Partial<TownshipDocument>>;
         Relationships: [];
       };
       scrape_requests: {
-        Row: ScrapeRequest;
-        Insert: Omit<ScrapeRequest, "id" | "created_at">;
-        Update: Partial<ScrapeRequest>;
+        Row: AsRow<ScrapeRequest>;
+        Insert: AsRow<ScrapeRequestInsert>;
+        Update: AsRow<Partial<ScrapeRequest>>;
         Relationships: [];
       };
       scrape_runs: {
-        Row: ScrapeRun;
-        Insert: Omit<ScrapeRun, "id">;
-        Update: Partial<ScrapeRun>;
+        Row: AsRow<ScrapeRun>;
+        Insert: AsRow<ScrapeRunInsert>;
+        Update: AsRow<Partial<ScrapeRun>>;
         Relationships: [];
       };
     };
-    Views: Record<never, never>;
-    Functions: Record<never, never>;
-    Enums: Record<never, never>;
-    CompositeTypes: Record<never, never>;
+    Views: Record<string, never>;
+    Functions: Record<string, never>;
   };
 }
