@@ -40,6 +40,13 @@ export async function registerAll(): Promise<void> {
     { scrapeRaleighNC },
     { scrapeBuffaloNY },
     { scrapeProvidenceRI },
+    { scrapeIndianapolisIN },
+    { scrapeMinneapolisMN },
+    { scrapeAtlantaGA },
+    { scrapeLouisvilleKY },
+    { scrapeRichmondVA },
+    { scrapeAustinTX },
+    { scrapeDurhamNC },
   ] = await Promise.all([
     import("./springfield-il"),
     import("./naperville-il"),
@@ -56,6 +63,13 @@ export async function registerAll(): Promise<void> {
     import("./raleigh-nc"),
     import("./buffalo-ny"),
     import("./providence-ri"),
+    import("./indianapolis-in"),
+    import("./minneapolis-mn"),
+    import("./atlanta-ga"),
+    import("./louisville-ky"),
+    import("./richmond-va"),
+    import("./austin-tx"),
+    import("./durham-nc"),
   ]);
 
   REGISTRY["springfield.il.us"]       = scrapeSpringfieldIL;
@@ -73,6 +87,13 @@ export async function registerAll(): Promise<void> {
   REGISTRY["raleighnc.gov"]           = scrapeRaleighNC;
   REGISTRY["buffalony.gov"]           = scrapeBuffaloNY;
   REGISTRY["providenceri.gov"]        = scrapeProvidenceRI;
+  REGISTRY["indy.gov"]                = scrapeIndianapolisIN;
+  REGISTRY["minneapolismn.gov"]       = scrapeMinneapolisMN;
+  REGISTRY["atlantaga.gov"]           = scrapeAtlantaGA;
+  REGISTRY["louisvilleky.gov"]        = scrapeLouisvilleKY;
+  REGISTRY["richmond.gov"]            = scrapeRichmondVA;
+  REGISTRY["austintexas.gov"]         = scrapeAustinTX;
+  REGISTRY["durhamnc.gov"]            = scrapeDurhamNC;
 }
 
 /**

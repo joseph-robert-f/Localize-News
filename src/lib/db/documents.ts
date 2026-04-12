@@ -75,6 +75,19 @@ export async function getDocumentsByTownship(
   return { documents, nextCursor };
 }
 
+/** Fetch a single document by ID. Returns null if not found. */
+export async function getDocumentById(id: string): Promise<TownshipDocument | null> {
+  const db = createServerClient();
+  const { data, error } = await db
+    .from("documents")
+    .select("*")
+    .eq("id", id)
+    .single();
+  if (error?.code === "PGRST116") return null;
+  if (error) throw new Error(`getDocumentById: ${error.message}`);
+  return data;
+}
+
 /** Strip null bytes and other control characters PostgreSQL JSON rejects. */
 function sanitizeText(text: string | null): string | null {
   if (!text) return text;

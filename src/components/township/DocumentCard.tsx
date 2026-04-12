@@ -27,7 +27,9 @@ export function DocumentCard({ doc, townshipName, townshipState }: DocumentCardP
     <Card className="flex flex-col gap-3">
       <CardHeader>
         <div className="flex flex-col gap-1">
-          <CardTitle>{doc.title}</CardTitle>
+          <Link href={`/documents/${doc.id}`} className="hover:underline">
+            <CardTitle>{doc.title}</CardTitle>
+          </Link>
           <div className="flex items-center gap-2">
             {doc.date && (
               <p className="text-xs text-stone-500 dark:text-stone-500">
