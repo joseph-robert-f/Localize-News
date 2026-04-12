@@ -19,6 +19,9 @@ import { formatDate, timeAgo } from "@/lib/utils";
 import { AdminAuthProvider } from "@/components/admin/AdminAuth";
 import { RequestActions } from "@/components/admin/RequestActions";
 import { ScrapeButton } from "@/components/admin/ScrapeButton";
+import { StatusToggle } from "@/components/admin/StatusToggle";
+import { InsightsButton } from "@/components/admin/InsightsButton";
+import { BatchSummarizeButton } from "@/components/admin/BatchSummarizeButton";
 import { QueuePanel } from "@/components/admin/QueuePanel";
 import type { ScrapeRun, Township, ScrapeRequest } from "@/lib/db/types";
 
@@ -69,6 +72,20 @@ export default async function AdminPage() {
                 <span className="mt-1 text-xs text-zinc-500">{label}</span>
               </Card>
             ))}
+          </section>
+
+          {/* AI batch actions */}
+          <section className="mb-10">
+            <h2 className="mb-4 text-sm font-semibold uppercase tracking-widest text-zinc-500">
+              AI Actions
+            </h2>
+            <div className="rounded-xl border border-zinc-200 bg-white px-5 py-4 dark:border-zinc-800 dark:bg-zinc-900">
+              <p className="mb-3 text-xs text-zinc-500">
+                For townships that were scraped before AI features were added, run this to backfill summaries.
+                Click multiple times to process more batches.
+              </p>
+              <BatchSummarizeButton />
+            </div>
           </section>
 
           {/* Pending requests */}
@@ -172,10 +189,14 @@ function TownshipRow({ township }: { township: Township }) {
           </span>
         )}
       </div>
-      <div className="flex shrink-0 items-center gap-4">
+      <div className="flex shrink-0 items-center gap-3">
         <StatusBadge status={township.status} />
+        <StatusToggle townshipId={township.id} currentStatus={township.status} />
         {township.status === "active" && (
           <ScrapeButton townshipId={township.id} townshipName={township.name} />
+        )}
+        {township.status === "active" && (
+          <InsightsButton townshipId={township.id} hasInsights={!!township.ai_insights} />
         )}
       </div>
     </Card>
