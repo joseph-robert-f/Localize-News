@@ -29,17 +29,32 @@ export async function registerAll(): Promise<void> {
     { scrapeNapervilleIL },
     { scrapeAnnArborMI },
     { scrapeCheltenhamPA },
+    { scrapeBostonMA },
+    { scrapeNashvilleTN },
+    { scrapeDenverCO },
+    { scrapeColumbusOH },
+    { scrapePortlandOR },
   ] = await Promise.all([
     import("./springfield-il"),
     import("./naperville-il"),
     import("./ann-arbor-mi"),
     import("./cheltenham-pa"),
+    import("./boston-ma"),
+    import("./nashville-tn"),
+    import("./denver-co"),
+    import("./columbus-oh"),
+    import("./portland-or"),
   ]);
 
   REGISTRY["springfield.il.us"]       = scrapeSpringfieldIL;
   REGISTRY["naperville.il.us"]        = scrapeNapervilleIL;
   REGISTRY["a2gov.org"]               = scrapeAnnArborMI;
   REGISTRY["cheltenham-township.org"] = scrapeCheltenhamPA;
+  REGISTRY["boston.gov"]              = scrapeBostonMA;
+  REGISTRY["nashville.gov"]           = scrapeNashvilleTN;
+  REGISTRY["denvergov.org"]           = scrapeDenverCO;
+  REGISTRY["columbus.gov"]            = scrapeColumbusOH;
+  REGISTRY["portland.gov"]            = scrapePortlandOR;
 }
 
 /**

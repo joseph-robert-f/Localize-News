@@ -5,6 +5,20 @@ import { TownshipSearch } from "@/components/township/TownshipSearch";
 import { RecentlyUpdated } from "@/components/home/RecentlyUpdated";
 import type { Township } from "@/lib/db/types";
 
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "Localize News — Township Public Records",
+  description:
+    "Search agendas, meeting minutes, budgets, and public proposals from local township and city governments across the United States.",
+  openGraph: {
+    title: "Localize News — Township Public Records",
+    description:
+      "Search agendas, meeting minutes, budgets, and public proposals from local township and city governments across the United States.",
+    url: "/",
+  },
+};
+
 export const revalidate = 3600;
 
 export default async function HomePage() {

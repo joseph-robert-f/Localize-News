@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { getTownshipById } from "@/lib/db/townships";
@@ -19,6 +20,31 @@ import { AreaInsightsCard } from "@/components/township/AreaInsightsCard";
 import { formatDate } from "@/lib/utils";
 import { DOCUMENT_TYPES } from "@/lib/db/types";
 import type { DocumentType } from "@/lib/db/types";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}): Promise<Metadata> {
+  const { id } = await params;
+  const [township, counts] = await Promise.all([
+    getTownshipById(id),
+    getDocumentCounts(id),
+  ]);
+  if (!township) return {};
+  const total = Object.values(counts).reduce((a, b) => a + b, 0);
+  const title = `${township.name}, ${township.state} Public Records`;
+  const description =
+    total > 0
+      ? `${total} public records from ${township.name}, ${township.state} — agendas, meeting minutes, budgets, and more.`
+      : `Public records from ${township.name}, ${township.state} — agendas, meeting minutes, and more.`;
+  return {
+    title,
+    description,
+    openGraph: { title, description, url: `/townships/${id}` },
+    alternates: { canonical: `/townships/${id}` },
+  };
+}
 
 export const revalidate = 3600;
 

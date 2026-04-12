@@ -1,0 +1,37 @@
+/**
+ * Scraper: City of Denver, CO
+ *
+ * Target: https://denver.legistar.com
+ * Documents: City Council agendas and meeting minutes via Legistar
+ *
+ * Run in isolation:
+ *   npx tsx scrapers/denver-co.ts
+ */
+
+import { scrapeLegistar } from "./legistar";
+import type { ScraperResult } from "./types";
+
+const TOWNSHIP_ID_PLACEHOLDER = "00000000-0000-0000-0000-000000000012";
+
+export async function scrapeDenverCO(
+  townshipId = TOWNSHIP_ID_PLACEHOLDER
+): Promise<ScraperResult> {
+  console.log("[denver-co] Scraping via Legistar…");
+  const { documents, errors } = await scrapeLegistar("denver");
+  return { townshipId, documents, errors };
+}
+
+// ── Standalone runner ─────────────────────────────────────────────────────────
+if (require.main === module) {
+  scrapeDenverCO()
+    .then((result) => {
+      console.log("\n─── Result ───");
+      console.log(`Documents: ${result.documents.length}`);
+      console.log(`Errors:    ${result.errors.length}`);
+      for (const doc of result.documents.slice(0, 5)) {
+        console.log(`  [${doc.type}] ${doc.title} (${doc.date ?? "no date"})`);
+      }
+      if (result.errors.length > 0) console.log("Errors:", result.errors);
+    })
+    .catch(console.error);
+}

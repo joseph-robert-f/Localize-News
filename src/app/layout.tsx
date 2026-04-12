@@ -13,9 +13,20 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Localize News — Township Public Records",
+  metadataBase: new URL("https://localizenews.app"),
+  title: {
+    default: "Localize News — Township Public Records",
+    template: "%s — Localize News",
+  },
   description:
     "Search and browse agendas, meeting minutes, budgets, and public proposals from local township governments.",
+  openGraph: {
+    type: "website",
+    siteName: "Localize News",
+  },
+  twitter: {
+    card: "summary",
+  },
 };
 
 export default function RootLayout({

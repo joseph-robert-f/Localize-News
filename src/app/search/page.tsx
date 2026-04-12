@@ -1,9 +1,30 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { searchDocumentsWithTownship } from "@/lib/db/documents";
 import { DocumentCard } from "@/components/township/DocumentCard";
 import { DOCUMENT_TYPES } from "@/lib/db/types";
 import type { DocumentType } from "@/lib/db/types";
 import type { DocumentWithTownship } from "@/lib/db/documents";
+
+export async function generateMetadata({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string }>;
+}): Promise<Metadata> {
+  const { q } = await searchParams;
+  const query = q?.trim() ?? "";
+  if (!query) {
+    return {
+      title: "Search Public Records",
+      description:
+        "Search agendas, meeting minutes, budgets, and proposals across local governments.",
+    };
+  }
+  return {
+    title: `"${query}" — Search`,
+    description: `Search results for "${query}" in local government public records.`,
+  };
+}
 
 const DATE_OPTIONS = [
   { label: "All time", days: undefined },
