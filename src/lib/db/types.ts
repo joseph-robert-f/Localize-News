@@ -1,6 +1,9 @@
 /**
  * Shared TypeScript types for the data model.
  * Keep this in sync with the Supabase schema (migrations/001_initial_schema.sql).
+ *
+ * Note: All model types must be `type` aliases (not `interface`) so they satisfy
+ * Record<string, unknown> constraints required by @supabase/supabase-js generics.
  */
 
 export type TownshipStatus = "pending" | "active" | "error" | "unsupported";
@@ -14,7 +17,7 @@ export type ScrapeRequestStatus = "pending" | "approved" | "rejected";
 export type ScrapeRunStatus = "running" | "success" | "error";
 export type ScrapeRunTrigger = "cron" | "admin" | "manual";
 
-export interface Township {
+export type Township = {
   id: string;
   name: string;
   state: string;
@@ -23,9 +26,9 @@ export interface Township {
   last_scraped_at: string | null;
   created_at: string;
   updated_at: string;
-}
+};
 
-export interface TownshipDocument {
+export type TownshipDocument = {
   id: string;
   township_id: string;
   type: DocumentType;
@@ -37,9 +40,9 @@ export interface TownshipDocument {
   ai_summary: string | null;     // Claude-generated 2–3 sentence summary
   scraped_at: string;
   created_at: string;
-}
+};
 
-export interface ScrapeRequest {
+export type ScrapeRequest = {
   id: string;
   township_name: string;
   website_url: string;
@@ -48,9 +51,9 @@ export interface ScrapeRequest {
   status: ScrapeRequestStatus;
   reviewed_at: string | null;
   created_at: string;
-}
+};
 
-export interface ScrapeRun {
+export type ScrapeRun = {
   id: string;
   township_id: string | null;
   triggered_by: ScrapeRunTrigger;
@@ -60,90 +63,54 @@ export interface ScrapeRun {
   error_message: string | null;
   started_at: string;
   finished_at: string | null;
-}
-
-/**
- * Converts an interface to a homomorphic mapped type.
- * Required for Supabase v2 + TypeScript 5.9: the client's GenericSchema constraint
- * uses `extends Record<string, unknown>`, which TS 5.9 only satisfies for mapped types,
- * not for plain interfaces. Without this, Schema resolves to `never` and all db calls break.
- */
-type AsRow<T> = { [K in keyof T]: T[K] };
-
-/**
- * Insert shapes — omit DB-generated fields (id, created_at, updated_at) and mark
- * nullable/DB-defaulted columns as optional so callers don't have to supply them.
- */
-type TownshipInsert = {
-  name: string;
-  state: string;
-  website_url: string;
-  status?: TownshipStatus;
-  last_scraped_at?: string | null;
 };
 
-type DocumentInsert = {
-  township_id: string;
-  type: DocumentType;
-  title: string;
-  source_url: string;
-  scraped_at: string;
-  date?: string | null;
-  content?: string | null;
-  file_url?: string | null;
-  ai_summary?: string | null;
-};
-
-type ScrapeRequestInsert = {
-  township_name: string;
-  website_url: string;
-  status?: ScrapeRequestStatus;
-  contact_email?: string | null;
-  notes?: string | null;
-  reviewed_at?: string | null;
-};
-
-type ScrapeRunInsert = {
-  triggered_by: ScrapeRunTrigger;
-  township_id?: string | null;
-  status?: ScrapeRunStatus;
-  documents_found?: number;
-  documents_inserted?: number;
-  error_message?: string | null;
-  started_at?: string;
-  finished_at?: string | null;
-};
-
-/** DB type wrapper for Supabase generics (v2.101+ / TypeScript 5.9 compatible). */
-export interface Database {
+/** Minimal DB type wrapper for Supabase generics — expand as the schema grows. */
+export type Database = {
   public: {
     Tables: {
       townships: {
-        Row: AsRow<Township>;
-        Insert: AsRow<TownshipInsert>;
-        Update: AsRow<Partial<Township>>;
+        Row: Township;
+        // last_scraped_at is NULL by default — optional on insert
+        Insert: Omit<Township, "id" | "created_at" | "updated_at" | "last_scraped_at"> & {
+          last_scraped_at?: string | null;
+        };
+        Update: Partial<Township>;
         Relationships: [];
       };
       documents: {
-        Row: AsRow<TownshipDocument>;
-        Insert: AsRow<DocumentInsert>;
-        Update: AsRow<Partial<TownshipDocument>>;
+        Row: TownshipDocument;
+        Insert: Omit<TownshipDocument, "id" | "created_at">;
+        Update: Partial<TownshipDocument>;
         Relationships: [];
       };
       scrape_requests: {
-        Row: AsRow<ScrapeRequest>;
-        Insert: AsRow<ScrapeRequestInsert>;
-        Update: AsRow<Partial<ScrapeRequest>>;
+        Row: ScrapeRequest;
+        // reviewed_at/contact_email/notes are NULL by default — optional on insert
+        Insert: Omit<ScrapeRequest, "id" | "created_at" | "reviewed_at" | "contact_email" | "notes"> & {
+          reviewed_at?: string | null;
+          contact_email?: string | null;
+          notes?: string | null;
+        };
+        Update: Partial<ScrapeRequest>;
         Relationships: [];
       };
       scrape_runs: {
-        Row: AsRow<ScrapeRun>;
-        Insert: AsRow<ScrapeRunInsert>;
-        Update: AsRow<Partial<ScrapeRun>>;
+        Row: ScrapeRun;
+        // All fields except township_id/triggered_by/status have DB defaults — optional on insert
+        Insert: Omit<ScrapeRun, "id" | "documents_found" | "documents_inserted" | "error_message" | "started_at" | "finished_at"> & {
+          documents_found?: number;
+          documents_inserted?: number;
+          error_message?: string | null;
+          started_at?: string;
+          finished_at?: string | null;
+        };
+        Update: Partial<ScrapeRun>;
         Relationships: [];
       };
     };
+    // Required by @supabase/supabase-js GenericSchema — empty but must be present
     Views: Record<string, never>;
     Functions: Record<string, never>;
   };
-}
+};

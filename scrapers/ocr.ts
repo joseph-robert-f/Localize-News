@@ -114,7 +114,9 @@ export async function extractPdfText(buffer: Buffer): Promise<ExtractionResult> 
   try {
     const { PDFParse } = await import("pdf-parse");
     parser = new PDFParse({ data: buffer });
-    const result = await parser.getText();
+    const result = await (
+      parser as unknown as { getText(): Promise<{ text: string; total?: number }> }
+    ).getText();
     const text = result.text.trim();
     if (!text) {
       return { text: null, method: "pdf-parse", pageCount: result.total };
