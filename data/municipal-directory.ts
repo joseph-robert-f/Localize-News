@@ -26,6 +26,53 @@ export interface MunicipalEntry {
 }
 
 export const MUNICIPAL_DIRECTORY: MunicipalEntry[] = [
+  // ── Original seed townships (pre-directory, hand-crafted scrapers) ─────────
+  {
+    name: "Springfield",
+    state: "IL",
+    county: "Sangamon",
+    website_url: "https://www.springfield.il.us",
+    population: 114394,
+    category: "city",
+    notes: "State capital of Illinois; one of the original scrapers",
+  },
+  {
+    name: "Naperville",
+    state: "IL",
+    county: "DuPage",
+    website_url: "https://www.naperville.il.us",
+    population: 149540,
+    category: "city",
+    notes: "One of the original scrapers",
+  },
+  {
+    name: "Shelbyville",
+    state: "IN",
+    county: "Shelby",
+    website_url: "https://www.shelbyville.in.gov",
+    population: 19191,
+    category: "city",
+    notes: "One of the original scrapers",
+  },
+  {
+    name: "Ann Arbor",
+    state: "MI",
+    county: "Washtenaw",
+    website_url: "https://www.a2gov.org",
+    population: 123851,
+    category: "city",
+    notes: "Home of University of Michigan; official site uses a2gov.org",
+  },
+  {
+    name: "Cheltenham Township",
+    state: "PA",
+    county: "Montgomery",
+    website_url: "https://www.cheltenham-township.org",
+    population: 37765,
+    category: "township",
+    notes: "One of the original scrapers; official site uses cheltenham-township.org",
+  },
+
   // ── Midwest ────────────────────────────────────────────────────────────────
   {
     name: "Columbus",
