@@ -145,8 +145,9 @@ export async function runScrapers(
       );
     }
 
-    // Fire-and-forget area insights — synthesizes recent docs into a township-level overview
-    if (inserted > 0 && process.env.ANTHROPIC_API_KEY) {
+    // Fire-and-forget area insights — re-generate on every run that found documents
+    // (not just when new ones were inserted — ensures insights stay current on re-scrapes)
+    if (scraperResult.documents.length > 0 && process.env.ANTHROPIC_API_KEY) {
       generateInsightsForTownship(township).catch((err) =>
         console.warn("[orchestrator] Area insights failed (non-fatal):", err)
       );

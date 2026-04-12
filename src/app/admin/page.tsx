@@ -22,6 +22,7 @@ import { ScrapeButton } from "@/components/admin/ScrapeButton";
 import { StatusToggle } from "@/components/admin/StatusToggle";
 import { InsightsButton } from "@/components/admin/InsightsButton";
 import { BatchSummarizeButton } from "@/components/admin/BatchSummarizeButton";
+import { RevalidateButton } from "@/components/admin/RevalidateButton";
 import { QueuePanel } from "@/components/admin/QueuePanel";
 import type { ScrapeRun, Township, ScrapeRequest } from "@/lib/db/types";
 
@@ -197,6 +198,9 @@ function TownshipRow({ township }: { township: Township }) {
         )}
         {township.status === "active" && (
           <InsightsButton townshipId={township.id} hasInsights={!!township.ai_insights} />
+        )}
+        {township.status === "active" && (
+          <RevalidateButton townshipId={township.id} />
         )}
       </div>
     </Card>
