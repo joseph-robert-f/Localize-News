@@ -65,7 +65,7 @@ export function SiteHeader({
                 Town Crier
               </span>
             </div>
-            <p className="text-xs text-stone-500">Local government, loudly indexed</p>
+            <p className="text-xs text-stone-500">Your town, decoded.</p>
           </div>
         )}
 

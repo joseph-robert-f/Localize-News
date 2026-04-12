@@ -68,7 +68,7 @@ export default async function HomePage() {
         {/* Hero */}
         <section>
           <h1 className="mb-3 text-4xl font-bold tracking-tight text-stone-900 dark:text-stone-100 font-[family-name:var(--font-display)]">
-            Local government,<br />loudly indexed.
+            Local government,<br />made searchable.
           </h1>
           <p className="max-w-lg text-stone-600 dark:text-stone-400 mb-6">
             We index agendas, minutes, budgets, and public proposals from township
