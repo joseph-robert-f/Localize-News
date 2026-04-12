@@ -84,7 +84,7 @@ function sanitizeText(text: string | null): string | null {
 
 /** Upsert a batch of documents for a township (idempotent — keyed on township_id + source_url). */
 export async function upsertDocuments(
-  docs: Omit<TownshipDocument, "id" | "created_at">[]
+  docs: (Omit<TownshipDocument, "id" | "created_at" | "topics"> & { topics?: string[] | null })[]
 ): Promise<{ inserted: number; ids: string[] }> {
   if (docs.length === 0) return { inserted: 0, ids: [] };
   const db = createServerClient();
@@ -93,6 +93,7 @@ export async function upsertDocuments(
     title: sanitizeText(d.title) ?? d.title,
     content: sanitizeText(d.content),
     ai_summary: sanitizeText(d.ai_summary),
+    topics: d.topics ?? null,
   }));
   const { data, error } = await db
     .from("documents")
@@ -166,6 +167,67 @@ export async function getRecentDocumentsWithContent(
     .limit(limit);
   if (error) throw new Error(`getRecentDocumentsWithContent: ${error.message}`);
   return data ?? [];
+}
+
+/** Persist AI-extracted topic tags for a document. */
+export async function setDocumentTopics(id: string, topics: string[]): Promise<void> {
+  const db = createServerClient();
+  const { error } = await db
+    .from("documents")
+    .update({ topics })
+    .eq("id", id);
+  if (error) throw new Error(`setDocumentTopics: ${error.message}`);
+}
+
+/**
+ * Return documents that have enough content/summary for topic extraction
+ * but have not yet had topics generated (topics IS NULL).
+ */
+export async function getDocumentsNeedingTopics(
+  opts: { limit?: number; townshipId?: string } = {}
+): Promise<TownshipDocument[]> {
+  const db = createServerClient();
+  let q = db
+    .from("documents")
+    .select("*")
+    .is("topics", null)
+    .or("ai_summary.not.is.null,content.not.is.null")
+    .limit(opts.limit ?? 50);
+  if (opts.townshipId) q = q.eq("township_id", opts.townshipId);
+  const { data, error } = await q;
+  if (error) throw new Error(`getDocumentsNeedingTopics: ${error.message}`);
+  // Must have at least some usable text
+  return (data ?? []).filter(
+    (d) => (d.ai_summary?.length ?? 0) >= 20 || (d.content?.length ?? 0) >= MIN_SUMMARIZABLE_LENGTH
+  );
+}
+
+/**
+ * Return the most common topic tags for a township, sorted by frequency.
+ * Aggregated in JS from the topics[] array on each document.
+ */
+export async function getTopTopics(
+  townshipId: string,
+  limit = 10
+): Promise<Array<{ topic: string; count: number }>> {
+  const db = createServerClient();
+  const { data, error } = await db
+    .from("documents")
+    .select("topics")
+    .eq("township_id", townshipId)
+    .not("topics", "is", null);
+  if (error) throw new Error(`getTopTopics: ${error.message}`);
+
+  const counts: Record<string, number> = {};
+  for (const row of data ?? []) {
+    for (const topic of row.topics ?? []) {
+      counts[topic] = (counts[topic] ?? 0) + 1;
+    }
+  }
+  return Object.entries(counts)
+    .sort(([, a], [, b]) => b - a)
+    .slice(0, limit)
+    .map(([topic, count]) => ({ topic, count }));
 }
 
 /** Count documents grouped by type for a township. */

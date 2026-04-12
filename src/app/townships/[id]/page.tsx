@@ -8,6 +8,7 @@ import {
   getDocumentMonthCounts,
   getMostRecentByType,
   getRecentSummaries,
+  getTopTopics,
 } from "@/lib/db/documents";
 import { DocumentList } from "@/components/township/DocumentList";
 import { LoadMore } from "@/components/township/LoadMore";
@@ -67,13 +68,14 @@ export default async function TownshipPage({
       ? (rawType as DocumentType)
       : undefined;
 
-  const [{ documents, nextCursor }, counts, monthCounts, recentByType, recentSummaries] =
+  const [{ documents, nextCursor }, counts, monthCounts, recentByType, recentSummaries, topTopics] =
     await Promise.all([
       getDocumentsByTownship(id, { type: selectedType }),
       getDocumentCounts(id),
       getDocumentMonthCounts(id),
       getMostRecentByType(id),
       getRecentSummaries(id, 3),
+      getTopTopics(id, 12),
     ]);
 
   const totalDocs = Object.values(counts).reduce((a, b) => a + b, 0);
@@ -203,6 +205,27 @@ export default async function TownshipPage({
               </h2>
               <RecentByType recentByType={recentByType} />
             </div>
+
+            {/* Trending topics */}
+            {topTopics.length > 0 && (
+              <div>
+                <h2 className="mb-3 text-sm font-semibold text-stone-900 dark:text-stone-100">
+                  Trending topics
+                </h2>
+                <div className="flex flex-wrap gap-2">
+                  {topTopics.map(({ topic, count }) => (
+                    <Link
+                      key={topic}
+                      href={`/search?q=${encodeURIComponent(topic)}`}
+                      className="flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-sm text-amber-800 hover:bg-amber-100 dark:border-amber-800/40 dark:bg-amber-950/30 dark:text-amber-300 dark:hover:bg-amber-950/50"
+                    >
+                      {topic}
+                      <span className="text-xs text-amber-500 dark:text-amber-500">{count}</span>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         ) : (
           /* ── Documents view ───────────────────────────────────── */

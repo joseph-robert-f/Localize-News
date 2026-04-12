@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Card, CardBody, CardHeader, CardTitle } from "@/components/ui/Card";
 import { formatDate, truncate } from "@/lib/utils";
 import type { TownshipDocument, DocumentType } from "@/lib/db/types";
+import { cn } from "@/lib/utils";
 
 interface DocumentCardProps {
   doc: TownshipDocument;
@@ -64,6 +65,20 @@ export function DocumentCard({ doc, townshipName, townshipState }: DocumentCardP
             <p className="mt-1 text-xs text-stone-400">AI summary</p>
           )}
         </CardBody>
+      )}
+
+      {doc.topics && doc.topics.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {doc.topics.slice(0, 5).map((topic) => (
+            <Link
+              key={topic}
+              href={`/search?q=${encodeURIComponent(topic)}`}
+              className="rounded-full bg-amber-50 px-2 py-0.5 text-xs text-amber-800 hover:bg-amber-100 dark:bg-amber-950/40 dark:text-amber-300 dark:hover:bg-amber-950/60"
+            >
+              {topic}
+            </Link>
+          ))}
+        </div>
       )}
 
       <div className="mt-auto flex items-center gap-3 pt-2">
