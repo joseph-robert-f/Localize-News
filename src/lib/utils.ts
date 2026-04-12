@@ -8,9 +8,7 @@ export function cn(...inputs: ClassValue[]) {
 /** Format an ISO date string (or Date) to a human-readable short date, e.g. "Apr 4, 2026". */
 export function formatDate(value: string | Date | null | undefined): string {
   if (!value) return "—";
-  // Date-only strings (YYYY-MM-DD) are parsed as UTC midnight by spec, which shifts
-  // to the prior calendar day in negative-offset timezones. Append T12:00:00 to treat
-  // them as local noon so the displayed date always matches the stored date.
+  // Append T12:00:00 for date-only strings to avoid UTC midnight → previous-day shift
   const d =
     typeof value === "string"
       ? /^\d{4}-\d{2}-\d{2}$/.test(value)

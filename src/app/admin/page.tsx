@@ -19,6 +19,7 @@ import { formatDate, timeAgo } from "@/lib/utils";
 import { AdminAuthProvider } from "@/components/admin/AdminAuth";
 import { RequestActions } from "@/components/admin/RequestActions";
 import { ScrapeButton } from "@/components/admin/ScrapeButton";
+import { QueuePanel } from "@/components/admin/QueuePanel";
 import type { ScrapeRun, Township, ScrapeRequest } from "@/lib/db/types";
 
 export const dynamic = "force-dynamic"; // always fetch fresh data
@@ -94,6 +95,14 @@ export default async function AdminPage() {
                 <TownshipRow key={t.id} township={t} />
               ))}
             </div>
+          </section>
+
+          {/* Scrape queue */}
+          <section className="mb-10">
+            <h2 className="mb-4 text-sm font-semibold uppercase tracking-widest text-zinc-500">
+              Scrape Queue
+            </h2>
+            <QueuePanel townships={townships} />
           </section>
 
           {/* Recent scrape runs */}

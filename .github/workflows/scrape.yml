@@ -9,13 +9,17 @@ on:
   workflow_dispatch:
     inputs:
       township_id:
-        description: 'Township ID to scrape (leave blank to scrape all active)'
+        description: 'Township ID to scrape (leave blank to scrape all due)'
         required: false
         default: ''
       force:
-        description: 'Force re-scrape even if recently scraped'
+        description: 'Force re-scrape even if not yet due (bypasses queue)'
         type: boolean
         default: false
+      since_days:
+        description: 'Only collect documents from the last N days (0 = no cutoff, blank = default 180)'
+        required: false
+        default: ''
 
 jobs:
   scrape:
@@ -47,3 +51,4 @@ jobs:
           BRAVE_SEARCH_API_KEY: ${{ secrets.BRAVE_SEARCH_API_KEY }}
           TOWNSHIP_ID: ${{ inputs.township_id }}
           FORCE_SCRAPE: ${{ inputs.force }}
+          SINCE_DAYS: ${{ inputs.since_days }}

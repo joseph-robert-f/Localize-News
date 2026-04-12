@@ -14,6 +14,9 @@
  *   BRAVE_SEARCH_API_KEY         Brave Search API key (falls back to DuckDuckGo)
  *   TOWNSHIP_ID                  Scrape only this specific township ID
  *   FORCE_SCRAPE                 Set to "true" to re-scrape even if recently done
+ *   SINCE_DAYS                   Only collect documents from the last N days.
+ *                                Defaults to 180 for scheduled runs.
+ *                                Set to 0 to disable the filter entirely.
  */
 
 import path from "path";
@@ -35,7 +38,7 @@ for (const key of requiredEnv) {
 // ── Wrap in async IIFE so dynamic imports work in CommonJS context ─────────
 (async () => {
   // Lazy imports (after env check)
-  const { getActiveTownships, getTownshipById } = await import(
+  const { getTownshipsForQueue, getActiveTownships, getTownshipById } = await import(
     "../src/lib/db/townships.js"
   );
   const { startScrapeRun, finishScrapeRun } = await import(
@@ -48,12 +51,24 @@ for (const key of requiredEnv) {
   const force = process.env.FORCE_SCRAPE === "true";
   const trigger = "cron";
 
+  // SINCE_DAYS=0 disables the filter; unset defaults to 180 for scheduled runs
+  const rawSinceDays = process.env.SINCE_DAYS !== undefined
+    ? parseInt(process.env.SINCE_DAYS, 10)
+    : undefined;
+  const sinceDays = rawSinceDays !== undefined
+    ? (isNaN(rawSinceDays) || rawSinceDays <= 0 ? undefined : rawSinceDays)
+    : (force || townshipId ? undefined : 180);
+  const sinceDate = sinceDays !== undefined
+    ? new Date(Date.now() - sinceDays * 86_400_000)
+    : undefined;
+
   // ── Main ─────────────────────────────────────────────────────────────────
   console.log("=".repeat(60));
   console.log("[scrape] GitHub Actions scraper starting");
-  console.log(`  township: ${townshipId ?? "all active"}`);
-  console.log(`  force:    ${force}`);
-  console.log(`  time:     ${new Date().toISOString()}`);
+  console.log(`  township:   ${townshipId ?? "all due"}`);
+  console.log(`  force:      ${force}`);
+  console.log(`  since days: ${sinceDays ?? "none (no cutoff)"}`);
+  console.log(`  time:       ${new Date().toISOString()}`);
   console.log("=".repeat(60));
 
   // ── Resolve townships ────────────────────────────────────────────────────
@@ -65,12 +80,14 @@ for (const key of requiredEnv) {
       process.exit(1);
     }
     townships = [t];
+  } else if (force) {
+    townships = (await getActiveTownships()).slice(0, 25);
   } else {
-    townships = await getActiveTownships();
+    townships = await getTownshipsForQueue(25);
   }
 
   if (townships.length === 0) {
-    console.log("[scrape] No active townships found — nothing to do.");
+    console.log("[scrape] No townships due for scraping — nothing to do.");
     return;
   }
   console.log(`[scrape] ${townships.length} township(s) to scrape:`);
@@ -89,7 +106,7 @@ for (const key of requiredEnv) {
   // ── Execute pipeline ─────────────────────────────────────────────────────
   let summary;
   try {
-    summary = await runScrapers(townships, { force, trigger, townshipId });
+    summary = await runScrapers(townships, { force, trigger, townshipId, sinceDate });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     console.error("[scrape] Fatal pipeline error:", err);

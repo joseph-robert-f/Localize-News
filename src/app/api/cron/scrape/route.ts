@@ -6,6 +6,13 @@
  *
  * Security: requires the x-cron-secret header to match CRON_SECRET env var.
  * Never expose this endpoint without the secret check.
+ *
+ * Body params:
+ *   trigger     — "cron" | "admin" (default "cron")
+ *   force       — boolean; if true, bypasses queue and scrapes all active townships
+ *   townshipId  — string; if set, scrapes only this township
+ *   sinceDays   — number; only collect documents from the last N days.
+ *                 Defaults to 180 for nightly cron runs. Ignored on force runs.
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -28,7 +35,7 @@ export async function POST(req: NextRequest) {
   if (providedSecret !== cronSecret) return unauthorized();
 
   // ── Parse body ──────────────────────────────────────────────────────────────
-  let body: { trigger?: string; force?: boolean; townshipId?: string } = {};
+  let body: { trigger?: string; force?: boolean; townshipId?: string; sinceDays?: number } = {};
   try {
     body = await req.json();
   } catch {
@@ -39,8 +46,17 @@ export async function POST(req: NextRequest) {
   const force = body.force === true;
   const townshipId = typeof body.townshipId === "string" ? body.townshipId : undefined;
 
+  // Nightly cron defaults to 180-day window; force runs and specific-township
+  // requests have no cutoff so admins always get the full picture.
+  const rawSinceDays = typeof body.sinceDays === "number" ? body.sinceDays : undefined;
+  const sinceDays = rawSinceDays ?? (trigger === "cron" && !force && !townshipId ? 180 : undefined);
+  const sinceDate = sinceDays !== undefined
+    ? new Date(Date.now() - sinceDays * 86_400_000)
+    : undefined;
+
   // ── Load dependencies lazily (safe for build) ────────────────────────────────
-  const { getActiveTownships, getTownshipById } = await import("@/lib/db/townships");
+  const { getActiveTownships, getTownshipsForQueue, getTownshipById } =
+    await import("@/lib/db/townships");
   const { startScrapeRun, finishScrapeRun } = await import("@/lib/db/scrapeRuns");
   const { runScrapers } = await import("../../../../../scrapers/index");
 
@@ -51,8 +67,12 @@ export async function POST(req: NextRequest) {
       const t = await getTownshipById(townshipId);
       if (!t) return NextResponse.json({ error: "Township not found" }, { status: 404 });
       townships = [t];
+    } else if (force) {
+      // Force: scrape all active townships regardless of queue schedule
+      townships = (await getActiveTownships()).slice(0, 25);
     } else {
-      townships = await getActiveTownships();
+      // Normal cron: only townships that are due
+      townships = await getTownshipsForQueue(25);
     }
   } catch (err) {
     console.error("[cron/scrape] Failed to resolve townships:", err);
@@ -60,7 +80,7 @@ export async function POST(req: NextRequest) {
   }
 
   if (townships.length === 0) {
-    return NextResponse.json({ message: "No active townships to scrape" });
+    return NextResponse.json({ message: "No townships due for scraping" });
   }
 
   // ── Start run log ───────────────────────────────────────────────────────────
@@ -68,12 +88,12 @@ export async function POST(req: NextRequest) {
 
   // ── Execute pipeline ────────────────────────────────────────────────────────
   console.log(
-    `[cron/scrape] Starting ${trigger} run: ${townships.length} townships, force=${force}`
+    `[cron/scrape] Starting ${trigger} run: ${townships.length} townships, force=${force}, sinceDays=${sinceDays ?? "none"}`
   );
 
   let summary;
   try {
-    summary = await runScrapers(townships, { force, trigger, townshipId });
+    summary = await runScrapers(townships, { force, trigger, townshipId, sinceDate });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     console.error("[cron/scrape] runScrapers threw:", err);
@@ -109,6 +129,7 @@ export async function POST(req: NextRequest) {
     ran: summary.ran,
     totalFound: summary.totalFound,
     totalInserted: summary.totalInserted,
+    sinceDays: sinceDays ?? null,
     errors: summary.errors,
   });
 }
