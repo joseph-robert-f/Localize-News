@@ -1,0 +1,101 @@
+name: Auto-Expand Municipal Directory
+
+# Runs weekly on Sundays at 2am UTC.
+# Can also be triggered manually with an optional focus area.
+#
+# What it does:
+#   1. Asks Claude to suggest new municipalities adjacent to existing coverage
+#   2. Appends them to data/municipal-directory.ts
+#   3. Imports new entries into Supabase (status=active)
+#   4. Commits and pushes the updated file back to main
+#
+# To request coverage for a specific area without waiting for the cron,
+# add an entry to data/expansion-requests.json and trigger this workflow
+# manually from the GitHub Actions UI.
+
+on:
+  schedule:
+    - cron: '0 2 * * 0'   # every Sunday at 2am UTC
+  workflow_dispatch:
+    inputs:
+      focus_area:
+        description: 'Focus area for this run, e.g. "Carbon County, PA" (leave blank to use expansion-requests.json)'
+        required: false
+        default: ''
+      batch_size:
+        description: 'Number of municipalities to add (default: 25)'
+        required: false
+        default: '25'
+      dry_run:
+        description: 'Preview changes without modifying the file or importing to Supabase'
+        type: boolean
+        default: false
+      import_status:
+        description: 'Status for new Supabase rows: active or pending (default: active)'
+        required: false
+        default: 'active'
+
+permissions:
+  contents: write   # needed to push the updated directory file back to main
+
+jobs:
+  expand:
+    name: Expand directory and import
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          # Use default GITHUB_TOKEN — push is covered by contents: write above
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run expansion script
+        run: |
+          ARGS="--batch ${{ inputs.batch_size || '25' }}"
+          if [ "${{ inputs.dry_run }}" = "true" ]; then ARGS="$ARGS --dry-run"; fi
+          if [ -n "${{ inputs.focus_area }}" ]; then ARGS="$ARGS --focus ${{ inputs.focus_area }}"; fi
+          npx tsx scripts/auto-expand-directory.ts $ARGS
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          FOCUS_AREA: ${{ inputs.focus_area }}
+
+      - name: Import new entries into Supabase
+        if: ${{ inputs.dry_run != 'true' }}
+        run: |
+          STATUS="${{ inputs.import_status || 'active' }}"
+          npx tsx scripts/import-directory.ts --status $STATUS
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+
+      - name: Check for file changes
+        if: ${{ inputs.dry_run != 'true' }}
+        id: changes
+        run: |
+          if git diff --quiet data/municipal-directory.ts; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            COUNT=$(git diff data/municipal-directory.ts | grep '^+' | grep -c '"name":' || true)
+            echo "count=$COUNT" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Commit and push updated directory
+        if: ${{ inputs.dry_run != 'true' && steps.changes.outputs.changed == 'true' }}
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/municipal-directory.ts
+          git commit -m "Auto-expand directory: +${{ steps.changes.outputs.count }} municipalities [skip ci]"
+          git push origin main

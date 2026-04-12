@@ -1,0 +1,20 @@
+[
+  {
+    "area": "Northampton County, PA",
+    "description": "All townships and boroughs not yet indexed — township-level coverage",
+    "requested_by": "admin",
+    "requested_at": "2026-04-12"
+  },
+  {
+    "area": "Monroe County, PA",
+    "description": "Pocono region — remaining townships and boroughs",
+    "requested_by": "admin",
+    "requested_at": "2026-04-12"
+  },
+  {
+    "area": "Lehigh County, PA",
+    "description": "Allentown suburbs — all townships surrounding the city",
+    "requested_by": "admin",
+    "requested_at": "2026-04-12"
+  }
+]
