@@ -4,7 +4,7 @@ import type { Metadata } from "next";
 import { getTownshipsByState } from "@/lib/db/townships";
 import { getTotalDocsByTownships } from "@/lib/db/documents";
 import { SiteHeader } from "@/components/layout/SiteHeader";
-import { StateCountyMap } from "@/components/coverage/StateCountyMap";
+import { CountyFocusMap } from "@/components/coverage/CountyFocusMap";
 import { STATE_FIPS, STATE_NAMES } from "@/lib/constants/states";
 import {
   countySlug,
@@ -123,14 +123,18 @@ export default async function CountyCoveragePage({ params }: Props) {
   // const sections = [municipalitiesSection, schoolSection];
   const sections: CoverageSection[] = [municipalitiesSection];
 
-  // Coverage data for context map (pass just this county's data)
-  const coverageByCounty: Record<string, number> = {};
-  const municipalsByCounty: Record<string, string[]> = {};
-  for (const t of allTownships) {
-    if (!t.county) continue;
-    coverageByCounty[t.county] = (coverageByCounty[t.county] ?? 0) + 1;
-    (municipalsByCounty[t.county] ??= []).push(t.name);
-  }
+  // Build municipality dot data for the county focus map
+  const municipalDots = townships
+    .filter((t) => t.latitude != null && t.longitude != null)
+    .map((t) => ({
+      id: t.id,
+      name: t.name,
+      category: t.category,
+      latitude: t.latitude!,
+      longitude: t.longitude!,
+      docCount: docCounts[t.id] ?? 0,
+      href: `/townships/${t.id}`,
+    }));
 
   return (
     <div className="min-h-screen bg-stone-50 dark:bg-stone-950">
@@ -170,19 +174,19 @@ export default async function CountyCoveragePage({ params }: Props) {
           </p>
         </section>
 
-        {/* Context map — state with this county highlighted, not navigable */}
-        <section>
-          <h2 className="mb-4 text-sm font-semibold uppercase tracking-widest text-stone-400">
-            Location within {stateName}
-          </h2>
-          <StateCountyMap
-            stateAbbr={abbr}
-            coverageByCounty={coverageByCounty}
-            municipalsByCounty={municipalsByCounty}
-            highlightedCounty={countyName}
-            navigable={false}
-          />
-        </section>
+        {/* County focus map — zoomed into this county with municipality dots */}
+        {municipalDots.length > 0 && (
+          <section>
+            <h2 className="mb-4 text-sm font-semibold uppercase tracking-widest text-stone-400">
+              Municipality map
+            </h2>
+            <CountyFocusMap
+              stateAbbr={abbr}
+              countyName={countyName}
+              municipalities={municipalDots}
+            />
+          </section>
+        )}
 
         {/* Coverage sections — municipalities now, extensible for school districts etc. */}
         {sections.map((section) => (

@@ -187,6 +187,8 @@ export async function createTownship(
     county?: string | null;
     category?: string | null;
     population?: number | null;
+    latitude?: number | null;
+    longitude?: number | null;
   }
 ): Promise<Township> {
   const db = createServerClient();

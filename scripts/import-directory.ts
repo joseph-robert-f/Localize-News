@@ -43,6 +43,7 @@ for (const key of requiredEnv) {
 
 (async () => {
   const { MUNICIPAL_DIRECTORY } = await import("../data/municipal-directory.js");
+  const { MUNICIPALITY_COORDINATES } = await import("../data/municipality-coordinates.js");
   const { createTownship } = await import("../src/lib/db/townships.js");
 
   const entries = stateFilter
@@ -73,12 +74,16 @@ for (const key of requiredEnv) {
     }
 
     try {
+      const coordKey = `${entry.name}|${entry.state}`;
+      const coords = MUNICIPALITY_COORDINATES[coordKey];
       await createTownship({
         name: entry.name,
         state: entry.state,
         county: entry.county ?? null,
         category: entry.category ?? null,
         population: entry.population ?? null,
+        latitude: coords ? coords[0] : null,
+        longitude: coords ? coords[1] : null,
         website_url: entry.website_url,
         status,
       });
