@@ -75,15 +75,28 @@ export async function getDocumentsByTownship(
   return { documents, nextCursor };
 }
 
+/** Strip null bytes and other control characters PostgreSQL JSON rejects. */
+function sanitizeText(text: string | null): string | null {
+  if (!text) return text;
+  // \u0000 (null byte) causes "unsupported Unicode escape sequence" in Postgres JSON
+  return text.replace(/\u0000/g, "").replace(/[\x01-\x08\x0B\x0C\x0E-\x1F]/g, "");
+}
+
 /** Upsert a batch of documents for a township (idempotent — keyed on township_id + source_url). */
 export async function upsertDocuments(
   docs: Omit<TownshipDocument, "id" | "created_at">[]
 ): Promise<{ inserted: number; ids: string[] }> {
   if (docs.length === 0) return { inserted: 0, ids: [] };
   const db = createServerClient();
+  const sanitized = docs.map((d) => ({
+    ...d,
+    title: sanitizeText(d.title) ?? d.title,
+    content: sanitizeText(d.content),
+    ai_summary: sanitizeText(d.ai_summary),
+  }));
   const { data, error } = await db
     .from("documents")
-    .upsert(docs, { onConflict: "township_id,source_url", ignoreDuplicates: false })
+    .upsert(sanitized, { onConflict: "township_id,source_url", ignoreDuplicates: false })
     .select("id");
   if (error) throw new Error(`upsertDocuments: ${error.message}`);
   return { inserted: data?.length ?? 0, ids: data?.map((r) => r.id) ?? [] };
