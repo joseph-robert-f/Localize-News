@@ -17,11 +17,16 @@ export type ScrapeRequestStatus = "pending" | "approved" | "rejected";
 export type ScrapeRunStatus = "running" | "success" | "error";
 export type ScrapeRunTrigger = "cron" | "admin" | "manual";
 
+/** Geographic category of a municipality. "town" covers New England town-meeting governments. */
+export type MunicipalCategory = "city" | "township" | "borough" | "village" | "town";
+
 export type Township = {
   id: string;
   name: string;
   state: string;
   county: string | null;
+  category: MunicipalCategory | null;
+  population: number | null;
   website_url: string;
   status: TownshipStatus;
   last_scraped_at: string | null;
@@ -78,8 +83,10 @@ export type Database = {
       townships: {
         Row: Township;
         // last_scraped_at/next_scrape_at/ai_insights/insights_updated_at are NULL by default; consecutive_empty_runs defaults to 0
-        Insert: Omit<Township, "id" | "created_at" | "updated_at" | "last_scraped_at" | "next_scrape_at" | "consecutive_empty_runs" | "ai_insights" | "insights_updated_at" | "county"> & {
+        Insert: Omit<Township, "id" | "created_at" | "updated_at" | "last_scraped_at" | "next_scrape_at" | "consecutive_empty_runs" | "ai_insights" | "insights_updated_at" | "county" | "category" | "population"> & {
           county?: string | null;
+          category?: string | null;
+          population?: number | null;
           last_scraped_at?: string | null;
           next_scrape_at?: string | null;
           consecutive_empty_runs?: number;

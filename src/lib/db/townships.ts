@@ -182,7 +182,12 @@ export async function getTownshipInsights(
 
 /** Insert a new township. Returns the created record. */
 export async function createTownship(
-  data: Pick<Township, "name" | "state" | "website_url"> & { status?: TownshipStatus; county?: string | null }
+  data: Pick<Township, "name" | "state" | "website_url"> & {
+    status?: TownshipStatus;
+    county?: string | null;
+    category?: string | null;
+    population?: number | null;
+  }
 ): Promise<Township> {
   const db = createServerClient();
   const { data: created, error } = await db

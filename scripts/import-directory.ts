@@ -77,6 +77,8 @@ for (const key of requiredEnv) {
         name: entry.name,
         state: entry.state,
         county: entry.county ?? null,
+        category: entry.category ?? null,
+        population: entry.population ?? null,
         website_url: entry.website_url,
         status,
       });

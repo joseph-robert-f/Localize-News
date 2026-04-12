@@ -5,6 +5,7 @@ import { getTownshipsByState } from "@/lib/db/townships";
 import { SiteHeader } from "@/components/layout/SiteHeader";
 import { StateCountyMap } from "@/components/coverage/StateCountyMap";
 import { STATE_FIPS, STATE_NAMES } from "@/lib/constants/states";
+import { formatCategory, countyLabel } from "@/lib/utils";
 import type { Township } from "@/lib/db/types";
 
 type Props = { params: Promise<{ state: string }> };
@@ -111,7 +112,7 @@ export default async function StateCoveragePage({ params }: Props) {
                 return (
                   <div key={county}>
                     <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-stone-400">
-                      {county} County
+                      {county} {countyLabel(abbr)}
                       <span className="ml-2 font-normal normal-case tracking-normal text-stone-400">
                         · {names.length}
                       </span>
@@ -125,10 +126,17 @@ export default async function StateCoveragePage({ params }: Props) {
                             href={`/townships/${t.id}`}
                             className="flex items-center justify-between rounded-lg border border-stone-200 bg-white px-4 py-3 text-sm transition-colors hover:border-stone-400 dark:border-stone-800 dark:bg-stone-900 dark:hover:border-stone-600"
                           >
-                            <span className="font-medium text-stone-900 dark:text-stone-100">
-                              {t.name}
-                            </span>
-                            <span className="ml-2 text-xs text-stone-400 shrink-0">
+                            <div className="flex flex-col gap-0.5 min-w-0">
+                              <span className="font-medium text-stone-900 dark:text-stone-100 truncate">
+                                {t.name}
+                              </span>
+                              {t.category && (
+                                <span className="text-xs text-stone-400">
+                                  {formatCategory(t.category)}
+                                </span>
+                              )}
+                            </div>
+                            <span className="ml-3 text-xs text-stone-400 shrink-0">
                               {t.last_scraped_at
                                 ? new Date(t.last_scraped_at).toLocaleDateString("en-US", {
                                     month: "short",
@@ -159,8 +167,13 @@ export default async function StateCoveragePage({ params }: Props) {
                   href={`/townships/${t.id}`}
                   className="flex items-center justify-between rounded-lg border border-stone-200 bg-white px-4 py-3 text-sm transition-colors hover:border-stone-400 dark:border-stone-800 dark:bg-stone-900 dark:hover:border-stone-600"
                 >
-                  <span className="font-medium text-stone-900 dark:text-stone-100">{t.name}</span>
-                  <span className="ml-2 text-xs text-stone-400 shrink-0">
+                  <div className="flex flex-col gap-0.5 min-w-0">
+                    <span className="font-medium text-stone-900 dark:text-stone-100 truncate">{t.name}</span>
+                    {t.category && (
+                      <span className="text-xs text-stone-400">{formatCategory(t.category)}</span>
+                    )}
+                  </div>
+                  <span className="ml-3 text-xs text-stone-400 shrink-0">
                     {t.last_scraped_at
                       ? new Date(t.last_scraped_at).toLocaleDateString("en-US", {
                           month: "short",

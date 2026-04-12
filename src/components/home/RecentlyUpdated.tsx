@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { timeAgo } from "@/lib/utils";
+import { timeAgo, formatLocation } from "@/lib/utils";
 import type { Township } from "@/lib/db/types";
 
 interface RecentlyUpdatedProps {
@@ -15,7 +15,7 @@ export function RecentlyUpdated({ townships }: RecentlyUpdatedProps) {
           href={`/townships/${t.id}`}
           className="group flex flex-col gap-3 rounded-xl border border-stone-200 bg-white p-5 transition-all hover:border-stone-400 hover:shadow-sm dark:border-stone-800 dark:bg-stone-900 dark:hover:border-stone-600"
         >
-          {/* State pill */}
+          {/* Category + state pill */}
           <span className="w-fit rounded-full bg-stone-100 px-2 py-0.5 text-xs font-medium text-stone-600 dark:bg-stone-800 dark:text-stone-400">
             {t.state}
           </span>
@@ -23,6 +23,11 @@ export function RecentlyUpdated({ townships }: RecentlyUpdatedProps) {
           {/* Name */}
           <p className="font-semibold text-stone-900 group-hover:text-stone-700 dark:text-stone-100 dark:group-hover:text-stone-300 leading-snug">
             {t.name}
+          </p>
+
+          {/* Location hierarchy */}
+          <p className="text-xs text-stone-400 leading-snug">
+            {formatLocation(t)}
           </p>
 
           {/* Last updated */}

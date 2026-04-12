@@ -43,3 +43,68 @@ export function timeAgo(value: string | Date): string {
 export function capitalise(str: string): string {
   return str.charAt(0).toUpperCase() + str.slice(1);
 }
+
+// ── Geographic taxonomy helpers ───────────────────────────────────────────────
+
+/**
+ * Human-readable label for a municipality's category.
+ * "city" → "City", "township" → "Township", etc.
+ */
+export function formatCategory(category: string | null | undefined): string {
+  if (!category) return "Municipality";
+  const map: Record<string, string> = {
+    city:     "City",
+    township: "Township",
+    borough:  "Borough",
+    village:  "Village",
+    town:     "Town",
+  };
+  return map[category] ?? capitalise(category);
+}
+
+/**
+ * The correct term for a county-equivalent subdivision in a given state.
+ * Louisiana uses "Parish"; Alaska uses "Borough" for its county-equivalents;
+ * everywhere else uses "County".
+ */
+export function countyLabel(state: string): string {
+  if (state === "LA") return "Parish";
+  if (state === "AK") return "Borough";
+  return "County";
+}
+
+/**
+ * One-line location string for display beneath a municipality name.
+ * Examples:
+ *   "Township · Northampton County, PA"
+ *   "City · Franklin Parish, LA"
+ *   "Borough · Anchorage Borough, AK"
+ *   "City · Ohio"  (no county data)
+ */
+export function formatLocation(t: {
+  state: string;
+  county?: string | null;
+  category?: string | null;
+}): string {
+  const cat = formatCategory(t.category);
+  const cl  = countyLabel(t.state);
+  if (t.county) return `${cat} · ${t.county} ${cl}, ${t.state}`;
+  return `${cat} · ${t.state}`;
+}
+
+/**
+ * Short breadcrumb fragments for a municipality.
+ * Returns an array so callers can render separators between them.
+ * e.g. ["PA", "Northampton County", "Wind Gap Borough"]
+ */
+export function locationBreadcrumbs(t: {
+  name: string;
+  state: string;
+  county?: string | null;
+  category?: string | null;
+}): string[] {
+  const parts: string[] = [t.state];
+  if (t.county) parts.push(`${t.county} ${countyLabel(t.state)}`);
+  parts.push(`${t.name} ${formatCategory(t.category)}`);
+  return parts;
+}

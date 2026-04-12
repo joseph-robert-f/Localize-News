@@ -19,7 +19,7 @@ import { TypeBreakdown } from "@/components/township/TypeBreakdown";
 import { RecentByType } from "@/components/township/RecentByType";
 import { MeetingDigest } from "@/components/township/MeetingDigest";
 import { AreaInsightsCard } from "@/components/township/AreaInsightsCard";
-import { formatDate } from "@/lib/utils";
+import { formatDate, formatCategory, formatLocation, countyLabel } from "@/lib/utils";
 import { DOCUMENT_TYPES } from "@/lib/db/types";
 import type { DocumentType } from "@/lib/db/types";
 
@@ -85,8 +85,8 @@ export default async function TownshipPage({
     <div className="min-h-screen bg-stone-50 dark:bg-stone-950">
       <SiteHeader
         slim
-        backHref="/"
-        backLabel="All townships"
+        backHref={township.state ? `/coverage/${township.state.toLowerCase()}` : "/"}
+        backLabel={township.state ? `${township.state} coverage` : "All townships"}
         rightSlot={<StatusBadge status={township.status} />}
       />
 
@@ -94,19 +94,45 @@ export default async function TownshipPage({
         {/* Township info */}
         <section className="flex items-start justify-between gap-4">
           <div>
+            {/* Breadcrumb: State → County → Category */}
+            <nav className="mb-2 flex items-center gap-1.5 text-xs text-stone-400" aria-label="Location">
+              <Link
+                href={`/coverage/${township.state.toLowerCase()}`}
+                className="hover:text-stone-600 dark:hover:text-stone-300"
+              >
+                {township.state}
+              </Link>
+              {township.county && (
+                <>
+                  <span>›</span>
+                  <span>{township.county} {countyLabel(township.state)}</span>
+                </>
+              )}
+              {township.category && (
+                <>
+                  <span>›</span>
+                  <span>{formatCategory(township.category)}</span>
+                </>
+              )}
+            </nav>
+
             <h1 className="text-3xl font-bold text-stone-900 dark:text-stone-100 font-[family-name:var(--font-display)]">
               {township.name}
             </h1>
             <p className="mt-1.5 text-sm text-stone-500">
-              {township.state} ·{" "}
               <a
                 href={township.website_url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-blue-600 hover:underline dark:text-blue-400"
+                className="text-amber-700 hover:underline dark:text-amber-400"
               >
                 Official website ↗
               </a>
+              {township.population && (
+                <span className="ml-3">
+                  Pop. {township.population.toLocaleString()}
+                </span>
+              )}
             </p>
           </div>
           <div className="shrink-0 text-right text-xs text-stone-400">

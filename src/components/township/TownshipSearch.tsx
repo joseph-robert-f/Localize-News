@@ -3,7 +3,7 @@
 import { useState, useMemo } from "react";
 import Link from "next/link";
 import { StatusBadge } from "./StatusBadge";
-import { formatDate } from "@/lib/utils";
+import { formatDate, formatCategory, countyLabel } from "@/lib/utils";
 import type { Township } from "@/lib/db/types";
 
 interface TownshipSearchProps {
@@ -19,7 +19,9 @@ export function TownshipSearch({ townships }: TownshipSearchProps) {
     return townships.filter(
       (t) =>
         t.name.toLowerCase().includes(q) ||
-        t.state.toLowerCase().includes(q)
+        t.state.toLowerCase().includes(q) ||
+        (t.county ?? "").toLowerCase().includes(q) ||
+        (t.category ?? "").toLowerCase().includes(q)
     );
   }, [townships, query]);
 
@@ -60,8 +62,14 @@ export function TownshipSearch({ townships }: TownshipSearchProps) {
             .sort(([a], [b]) => a.localeCompare(b))
             .map(([state, list]) => (
               <section key={state}>
-                <h2 className="mb-3 text-xs font-semibold uppercase tracking-widest text-stone-500">
-                  {state}
+                <h2 className="mb-3 text-xs font-semibold uppercase tracking-widest text-stone-500 flex items-center gap-2">
+                  <Link
+                    href={`/coverage/${state.toLowerCase()}`}
+                    className="hover:text-stone-700 dark:hover:text-stone-300"
+                  >
+                    {state}
+                  </Link>
+                  <span className="font-normal normal-case tracking-normal text-stone-400">· {list.length}</span>
                 </h2>
                 <ul className="flex flex-col gap-2">
                   {list.map((t) => (
@@ -74,7 +82,10 @@ export function TownshipSearch({ townships }: TownshipSearchProps) {
                           <span className="font-medium text-stone-900 dark:text-stone-100">
                             {t.name}
                           </span>
-                          <span className="text-sm text-stone-500">{t.state}</span>
+                          <span className="text-xs text-stone-400">
+                            {t.category ? `${formatCategory(t.category)} · ` : ""}
+                            {t.county ? `${t.county} ${countyLabel(t.state)}, ${t.state}` : t.state}
+                          </span>
                         </div>
                         <div className="flex items-center gap-4">
                           {t.last_scraped_at && (

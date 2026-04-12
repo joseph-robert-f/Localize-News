@@ -12,7 +12,8 @@
  *   - Status "pending" = needs admin review before scraping begins
  */
 
-export type MunicipalCategory = "city" | "township" | "borough" | "village";
+/** "town" covers New England town-meeting governments (MA, CT, RI, VT, NH, ME). */
+export type MunicipalCategory = "city" | "township" | "borough" | "village" | "town";
 
 export interface MunicipalEntry {
   name: string;
