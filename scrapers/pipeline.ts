@@ -26,6 +26,7 @@ import {
   ocrPdfWithPlaywright,
   extractHtmlText,
 } from "./ocr";
+import { deepCrawl } from "./deep-crawl";
 import type { ScraperConfig, ScraperResult, ScrapedDocument } from "./types";
 import { classifyError } from "./types";
 import { isDocumentRecent } from "./utils";
@@ -135,9 +136,9 @@ export async function runScraperPipeline(
       }
     }
 
-    // Also crawl the township's own website
-    console.log(`[pipeline] Crawling township site: ${config.websiteUrl}`);
-    const siteDocs = await crawlTownshipSite(config.websiteUrl, browser, seen);
+    // Deep-crawl the township's own website (multi-level, extracts PDF content)
+    console.log(`[pipeline] Deep-crawling township site: ${config.websiteUrl}`);
+    const siteDocs = await deepCrawl(config.websiteUrl, browser, seen);
     const recentSiteDocs = siteDocs.filter((d) => isDocumentRecent(d, config.sinceDate));
     result.documents.push(...recentSiteDocs.slice(0, MAX_TOTAL_DOCS - result.documents.length));
 
@@ -233,54 +234,3 @@ async function processHtmlUrl(
   };
 }
 
-// ─── Township site crawler ───────────────────────────────────────────────────
-
-async function crawlTownshipSite(
-  siteUrl: string,
-  browser: Parameters<typeof extractHtmlText>[1],
-  seen: Set<string>
-): Promise<ScrapedDocument[]> {
-  const docs: ScrapedDocument[] = [];
-  const context = await browser.newContext();
-  const page = await context.newPage();
-
-  try {
-    await page.goto(siteUrl, { waitUntil: "domcontentloaded", timeout: 20_000 });
-
-    const links = await page.evaluate(() => {
-      const anchors = Array.from(document.querySelectorAll("a[href]"));
-      return anchors
-        .map((a) => ({
-          href: (a as HTMLAnchorElement).href,
-          text: a.textContent?.trim() ?? "",
-        }))
-        .filter(
-          ({ href, text }) =>
-            href.startsWith("http") &&
-            (href.endsWith(".pdf") ||
-              /agenda|minutes|budget|proposal/i.test(text) ||
-              /agenda|minutes|budget|proposal/i.test(href))
-        )
-        .slice(0, 30);
-    });
-
-    for (const { href, text } of links) {
-      if (seen.has(href) || docs.length >= 20) break;
-      seen.add(href);
-      docs.push({
-        type: classifyDocument(text, href),
-        title: text || href.split("/").pop() || "Document",
-        date: parseDate(text) ?? parseDate(href),
-        sourceUrl: href,
-        fileUrl: PDF_EXT.test(href) ? href : null,
-        content: null,
-      });
-    }
-  } catch (err) {
-    console.warn(`[pipeline] crawlTownshipSite failed for ${siteUrl}:`, err);
-  } finally {
-    await context.close();
-  }
-
-  return docs;
-}
