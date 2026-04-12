@@ -3,6 +3,7 @@ import { getActiveTownships } from "@/lib/db/townships";
 import { getTotalDocumentCount } from "@/lib/db/documents";
 import { TownshipSearch } from "@/components/township/TownshipSearch";
 import { RecentlyUpdated } from "@/components/home/RecentlyUpdated";
+import { CoverageMap } from "@/components/home/CoverageMap";
 import { SiteHeader } from "@/components/layout/SiteHeader";
 import type { Township } from "@/lib/db/types";
 
@@ -36,6 +37,14 @@ export default async function HomePage() {
   }
 
   const stateCount = new Set(townships.map((t) => t.state)).size;
+
+  const coverageByState: Record<string, number> = {};
+  const townshipsByState: Record<string, string[]> = {};
+  for (const t of townships) {
+    coverageByState[t.state] = (coverageByState[t.state] ?? 0) + 1;
+    (townshipsByState[t.state] ??= []).push(t.name);
+  }
+
   const recentlyUpdated = [...townships]
     .filter((t) => t.last_scraped_at)
     .sort((a, b) =>
@@ -102,6 +111,19 @@ export default async function HomePage() {
                 <p className="mt-0.5 text-xs text-stone-500">{label}</p>
               </div>
             ))}
+          </section>
+        )}
+
+        {/* Coverage map */}
+        {townships.length > 0 && (
+          <section>
+            <h2 className="mb-4 text-sm font-semibold uppercase tracking-widest text-stone-400">
+              Coverage
+            </h2>
+            <CoverageMap
+              coverageByState={coverageByState}
+              townshipsByState={townshipsByState}
+            />
           </section>
         )}
 
