@@ -49,9 +49,20 @@ export function DocumentCard({ doc, townshipName, townshipState }: DocumentCardP
         <Badge variant={variant}>{label}</Badge>
       </CardHeader>
 
-      {doc.content && (
+      {(doc.ai_summary ?? doc.content) && (
         <CardBody>
-          <p>{truncate(doc.content, 200)}</p>
+          <p
+            className={
+              doc.ai_summary
+                ? "text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed"
+                : ""
+            }
+          >
+            {doc.ai_summary ?? truncate(doc.content!, 200)}
+          </p>
+          {doc.ai_summary && (
+            <p className="mt-1 text-xs text-zinc-400">AI summary</p>
+          )}
         </CardBody>
       )}
 
