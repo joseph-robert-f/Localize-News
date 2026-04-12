@@ -11,8 +11,8 @@ interface ScrapeButtonProps {
 
 export function ScrapeButton({ townshipId, townshipName }: ScrapeButtonProps) {
   const { secret } = useAdminSecret();
-  const [state, setState] = useState<"idle" | "loading" | "done" | "error">("idle");
-  const [result, setResult] = useState<{ found: number; inserted: number } | null>(null);
+  const [state, setState] = useState<"idle" | "loading" | "queued" | "error">("idle");
+  const [actionsUrl, setActionsUrl] = useState("");
   const [error, setError] = useState("");
 
   async function handleScrape() {
@@ -20,42 +20,55 @@ export function ScrapeButton({ townshipId, townshipName }: ScrapeButtonProps) {
     setState("loading");
     setError("");
     try {
-      const res = await fetch("/api/scrape", {
+      const res = await fetch("/api/admin/dispatch-scrape", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           "x-admin-secret": secret,
         },
-        body: JSON.stringify({ townshipId }),
+        body: JSON.stringify({ townshipId, force: true }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
-      setResult({ found: data.found, inserted: data.inserted });
-      setState("done");
+      setActionsUrl(data.actionsUrl);
+      setState("queued");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Scrape failed.");
+      setError(err instanceof Error ? err.message : "Dispatch failed.");
       setState("error");
     }
   }
 
+  if (state === "queued") {
+    return (
+      <div className="flex flex-col items-end gap-1">
+        <span className="text-xs text-green-600 dark:text-green-400 font-medium">
+          ✓ Queued in GitHub Actions
+        </span>
+        <a
+          href={actionsUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-xs text-blue-600 hover:underline dark:text-blue-400"
+        >
+          Watch run →
+        </a>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col items-end gap-1">
-      {state === "done" && result && (
-        <span className="text-xs text-zinc-500">
-          {result.found} found · {result.inserted} new
-        </span>
-      )}
       <Button
         size="sm"
         variant="secondary"
         loading={state === "loading"}
-        disabled={state === "loading" || state === "done"}
+        disabled={state === "loading"}
         onClick={handleScrape}
-        title={`Scrape ${townshipName}`}
+        title={`Scrape ${townshipName} via GitHub Actions`}
       >
-        {state === "done" ? "Done" : "Scrape now"}
+        Scrape now
       </Button>
-      {state === "error" && <p className="text-xs text-red-500">{error}</p>}
+      {state === "error" && <p className="text-xs text-red-500 max-w-[180px] text-right">{error}</p>}
     </div>
   );
 }
