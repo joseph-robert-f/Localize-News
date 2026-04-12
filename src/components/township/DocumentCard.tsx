@@ -29,16 +29,16 @@ export function DocumentCard({ doc, townshipName, townshipState }: DocumentCardP
           <CardTitle>{doc.title}</CardTitle>
           <div className="flex items-center gap-2">
             {doc.date && (
-              <p className="text-xs text-zinc-500 dark:text-zinc-500">
+              <p className="text-xs text-stone-500 dark:text-stone-500">
                 {formatDate(doc.date)}
               </p>
             )}
             {townshipName && (
               <>
-                {doc.date && <span className="text-xs text-zinc-300 dark:text-zinc-600">·</span>}
+                {doc.date && <span className="text-xs text-stone-300 dark:text-stone-600">·</span>}
                 <Link
                   href={`/townships/${doc.township_id}`}
-                  className="text-xs text-zinc-500 hover:underline dark:text-zinc-400"
+                  className="text-xs text-stone-500 hover:underline dark:text-stone-400"
                 >
                   {townshipName}{townshipState ? `, ${townshipState}` : ""}
                 </Link>
@@ -54,14 +54,14 @@ export function DocumentCard({ doc, townshipName, townshipState }: DocumentCardP
           <p
             className={
               doc.ai_summary
-                ? "text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed"
+                ? "text-sm text-stone-600 dark:text-stone-400 leading-relaxed"
                 : ""
             }
           >
             {doc.ai_summary ?? truncate(doc.content!, 200)}
           </p>
           {doc.ai_summary && (
-            <p className="mt-1 text-xs text-zinc-400">AI summary</p>
+            <p className="mt-1 text-xs text-stone-400">AI summary</p>
           )}
         </CardBody>
       )}
@@ -81,7 +81,7 @@ export function DocumentCard({ doc, townshipName, townshipState }: DocumentCardP
           href={doc.source_url}
           target="_blank"
           rel="noopener noreferrer"
-          className="text-xs text-zinc-500 hover:underline dark:text-zinc-400"
+          className="text-xs text-stone-500 hover:underline dark:text-stone-400"
         >
           Source
         </a>

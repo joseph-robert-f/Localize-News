@@ -9,7 +9,7 @@ interface BadgeProps {
 }
 
 const variantClasses: Record<BadgeVariant, string> = {
-  default: "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300",
+  default: "bg-stone-100 text-stone-700 dark:bg-stone-800 dark:text-stone-300",
   success: "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300",
   warning: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-300",
   error:   "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300",

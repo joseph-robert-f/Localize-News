@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { searchDocumentsWithTownship } from "@/lib/db/documents";
 import { DocumentCard } from "@/components/township/DocumentCard";
+import { SiteHeader } from "@/components/layout/SiteHeader";
 import { DOCUMENT_TYPES } from "@/lib/db/types";
 import type { DocumentType } from "@/lib/db/types";
 import type { DocumentWithTownship } from "@/lib/db/documents";
@@ -72,31 +73,25 @@ export default async function SearchPage({
   }
 
   return (
-    <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
-      {/* Header */}
-      <header className="border-b border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
-        <div className="mx-auto flex max-w-4xl items-center justify-between px-6 py-4">
-          <Link
-            href="/"
-            className="text-sm font-bold tracking-tight text-zinc-900 dark:text-zinc-100"
-          >
-            Localize News
-          </Link>
+    <div className="min-h-screen bg-stone-50 dark:bg-stone-950">
+      <SiteHeader
+        slim
+        rightSlot={
           <Link
             href="/request"
-            className="text-sm text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200"
+            className="text-sm text-stone-500 hover:text-stone-800 dark:hover:text-stone-200"
           >
             Request a township
           </Link>
-        </div>
-      </header>
+        }
+      />
 
       <main className="mx-auto max-w-4xl px-6 py-10">
         {/* Search bar */}
         <form method="GET" action="/search" className="mb-8">
           <div className="flex gap-3">
             <div className="relative flex-1">
-              <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-zinc-400">
+              <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-stone-400">
                 <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                   <circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" />
                 </svg>
@@ -107,12 +102,12 @@ export default async function SearchPage({
                 defaultValue={query}
                 placeholder="Search documents across all townships…"
                 autoFocus={!query}
-                className="w-full rounded-lg border border-zinc-300 bg-white py-2.5 pl-9 pr-4 text-sm text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+                className="w-full rounded-lg border border-stone-300 bg-white py-2.5 pl-9 pr-4 text-sm text-stone-900 placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-amber-700 dark:border-stone-700 dark:bg-stone-900 dark:text-stone-100"
               />
             </div>
             <button
               type="submit"
-              className="rounded-lg bg-zinc-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
+              className="rounded-lg bg-amber-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-amber-800 dark:bg-amber-100 dark:text-amber-950 dark:hover:bg-amber-200"
             >
               Search
             </button>
@@ -127,8 +122,8 @@ export default async function SearchPage({
                 href={buildHref(query, undefined, selectedDays)}
                 className={
                   !selectedType
-                    ? "rounded-full bg-zinc-900 px-3 py-1 text-sm font-medium text-white dark:bg-zinc-100 dark:text-zinc-900"
-                    : "rounded-full border border-zinc-300 px-3 py-1 text-sm text-zinc-600 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-800"
+                    ? "rounded-full bg-stone-900 px-3 py-1 text-sm font-medium text-white dark:bg-stone-100 dark:text-stone-900"
+                    : "rounded-full border border-stone-300 px-3 py-1 text-sm text-stone-600 hover:bg-stone-100 dark:border-stone-700 dark:text-stone-400 dark:hover:bg-stone-800"
                 }
               >
                 All types
@@ -139,8 +134,8 @@ export default async function SearchPage({
                   href={buildHref(query, t, selectedDays)}
                   className={
                     selectedType === t
-                      ? "rounded-full bg-zinc-900 px-3 py-1 text-sm font-medium capitalize text-white dark:bg-zinc-100 dark:text-zinc-900"
-                      : "rounded-full border border-zinc-300 px-3 py-1 text-sm capitalize text-zinc-600 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-800"
+                      ? "rounded-full bg-stone-900 px-3 py-1 text-sm font-medium capitalize text-white dark:bg-stone-100 dark:text-stone-900"
+                      : "rounded-full border border-stone-300 px-3 py-1 text-sm capitalize text-stone-600 hover:bg-stone-100 dark:border-stone-700 dark:text-stone-400 dark:hover:bg-stone-800"
                   }
                 >
                   {t}
@@ -154,8 +149,8 @@ export default async function SearchPage({
                   href={buildHref(query, selectedType, days)}
                   className={
                     selectedDays === days
-                      ? "rounded-full bg-zinc-700 px-3 py-1 text-sm font-medium text-white dark:bg-zinc-300 dark:text-zinc-900"
-                      : "rounded-full border border-zinc-200 px-3 py-1 text-sm text-zinc-500 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-800"
+                      ? "rounded-full bg-stone-700 px-3 py-1 text-sm font-medium text-white dark:bg-stone-300 dark:text-stone-900"
+                      : "rounded-full border border-stone-200 px-3 py-1 text-sm text-stone-500 hover:bg-stone-100 dark:border-stone-700 dark:text-stone-400 dark:hover:bg-stone-800"
                   }
                 >
                   {label}
@@ -172,16 +167,16 @@ export default async function SearchPage({
           </p>
         ) : query.length < 2 ? (
           <div className="py-16 text-center">
-            <p className="text-zinc-400">Enter at least 2 characters to search.</p>
+            <p className="text-stone-400">Enter at least 2 characters to search.</p>
           </div>
         ) : results.length === 0 ? (
           <div className="py-16 text-center">
-            <p className="text-zinc-500">
+            <p className="text-stone-500">
               No documents found for <strong>&ldquo;{query}&rdquo;</strong>.
             </p>
-            <p className="mt-2 text-sm text-zinc-400">
+            <p className="mt-2 text-sm text-stone-400">
               Try a broader term or{" "}
-              <Link href="/" className="underline hover:text-zinc-700">
+              <Link href="/" className="underline hover:text-stone-700">
                 browse townships
               </Link>
               .
@@ -189,7 +184,7 @@ export default async function SearchPage({
           </div>
         ) : (
           <>
-            <p className="mb-4 text-sm text-zinc-500">
+            <p className="mb-4 text-sm text-stone-500">
               {results.length} result{results.length !== 1 ? "s" : ""} for{" "}
               <strong>&ldquo;{query}&rdquo;</strong>
               {selectedType && ` · ${selectedType}`}

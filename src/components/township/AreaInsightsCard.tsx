@@ -20,7 +20,7 @@ export function AreaInsightsCard({ insights, updatedAt }: AreaInsightsCardProps)
           </span>
         )}
       </div>
-      <p className="text-sm leading-relaxed text-zinc-700 dark:text-zinc-300">
+      <p className="text-sm leading-relaxed text-stone-700 dark:text-stone-300">
         {insights}
       </p>
     </div>
