@@ -28,6 +28,7 @@ import {
 } from "./ocr";
 import type { ScraperConfig, ScraperResult, ScrapedDocument } from "./types";
 import { classifyError } from "./types";
+import { isDocumentRecent } from "./utils";
 import type { DocumentType } from "../src/lib/db/types";
 
 // ─── Config ──────────────────────────────────────────────────────────────────
@@ -137,7 +138,8 @@ export async function runScraperPipeline(
     // Also crawl the township's own website
     console.log(`[pipeline] Crawling township site: ${config.websiteUrl}`);
     const siteDocs = await crawlTownshipSite(config.websiteUrl, browser, seen);
-    result.documents.push(...siteDocs.slice(0, MAX_TOTAL_DOCS - result.documents.length));
+    const recentSiteDocs = siteDocs.filter((d) => isDocumentRecent(d, config.sinceDate));
+    result.documents.push(...recentSiteDocs.slice(0, MAX_TOTAL_DOCS - result.documents.length));
 
     // ── Process all candidates concurrently (capped) ────────────────────────
     const tasks = candidates
@@ -146,7 +148,7 @@ export async function runScraperPipeline(
         throttle(async () => {
           console.log(`[pipeline] Processing: ${url}`);
           const doc = await processUrl(url, title, browser, config.skipOcr ?? false);
-          if (doc) result.documents.push(doc);
+          if (doc && isDocumentRecent(doc, config.sinceDate)) result.documents.push(doc);
         })
       );
 

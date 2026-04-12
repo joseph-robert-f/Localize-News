@@ -15,6 +15,7 @@
  */
 
 import { runScraperPipeline } from "./pipeline";
+import { isDocumentRecent } from "./utils";
 import type { ScraperResult } from "./types";
 import type { Township } from "../src/lib/db/types";
 
@@ -25,6 +26,8 @@ export interface OrchestratorOptions {
   force?: boolean;
   /** Override the triggered-by label in scrape_run logs. */
   trigger?: "cron" | "admin" | "manual";
+  /** Only include documents on or after this date. Undated documents are always kept. */
+  sinceDate?: Date;
 }
 
 export interface OrchestratorResult {
@@ -63,11 +66,22 @@ export async function runScrapers(
     console.log(`[orchestrator:${trigger}] Scraping ${township.name}, ${township.state}…`);
 
     let scraperResult: ScraperResult;
+    let hadPipelineError = false;
+
     try {
       const specificScraper = getScraperForUrl(township.website_url);
       if (specificScraper) {
         console.log(`[orchestrator] Using hand-crafted scraper for ${township.website_url}`);
         scraperResult = await specificScraper(township.id);
+        // Hand-crafted scrapers don't accept sinceDate — apply as post-filter
+        if (opts.sinceDate) {
+          scraperResult = {
+            ...scraperResult,
+            documents: scraperResult.documents.filter((d) =>
+              isDocumentRecent(d, opts.sinceDate)
+            ),
+          };
+        }
       } else {
         console.log(`[orchestrator] No specific scraper found — using generic pipeline`);
         scraperResult = await runScraperPipeline({
@@ -75,22 +89,29 @@ export async function runScrapers(
           townshipName: township.name,
           websiteUrl: township.website_url,
           state: township.state,
+          sinceDate: opts.sinceDate,
         });
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       console.error(`[orchestrator] Pipeline threw for ${township.id}:`, err);
       summary.errors.push({ townshipId: township.id, message: msg });
+      hadPipelineError = true;
+      // Always advance the queue even on error so we don't retry immediately
+      await markTownshipScraped(township.id, { hadError: true }).catch((e) =>
+        console.warn("[orchestrator] markTownshipScraped (error path) failed:", e)
+      );
       continue;
     }
 
     summary.ran += 1;
     summary.totalFound += scraperResult.documents.length;
 
+    let inserted = 0;
     let upsertedIds: string[] = [];
     if (scraperResult.documents.length > 0) {
       try {
-        const { inserted, ids } = await upsertDocuments(
+        const result = await upsertDocuments(
           scraperResult.documents.map((d) => ({
             township_id: township.id,
             type: d.type,
@@ -103,12 +124,14 @@ export async function runScrapers(
             scraped_at: new Date().toISOString(),
           }))
         );
+        inserted = result.inserted;
+        upsertedIds = result.ids;
         summary.totalInserted += inserted;
-        upsertedIds = ids;
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         console.error(`[orchestrator] upsertDocuments failed for ${township.id}:`, err);
         summary.errors.push({ townshipId: township.id, message: `upsert: ${msg}` });
+        hadPipelineError = true;
       }
     }
 
@@ -119,13 +142,13 @@ export async function runScrapers(
       );
     }
 
-    // Mark as scraped if we processed at least some documents successfully,
-    // even if there were partial errors (e.g. a few PDFs failed to fetch).
-    if (scraperResult.documents.length > 0 || scraperResult.errors.length === 0) {
-      await markTownshipScraped(township.id).catch((err) =>
-        console.warn("[orchestrator] markTownshipScraped failed:", err)
-      );
-    }
+    // Always advance the queue — pass actual counts so back-off is correct
+    await markTownshipScraped(township.id, {
+      newDocsInserted: inserted,
+      hadError: hadPipelineError,
+    }).catch((err) =>
+      console.warn("[orchestrator] markTownshipScraped failed:", err)
+    );
 
     for (const e of scraperResult.errors) {
       summary.errors.push({ townshipId: township.id, message: `[${e.type}] ${e.message}` });

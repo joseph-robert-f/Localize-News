@@ -36,6 +36,8 @@ export interface ScraperConfig {
   searchKeywords?: string[];
   /** Skip OCR even if text extraction fails (useful for well-structured sites). */
   skipOcr?: boolean;
+  /** Only include documents on or after this date. Undated documents are always kept. */
+  sinceDate?: Date;
 }
 
 /** Classify a caught error into a ScraperErrorType. */

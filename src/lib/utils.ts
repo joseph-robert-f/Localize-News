@@ -8,7 +8,13 @@ export function cn(...inputs: ClassValue[]) {
 /** Format an ISO date string (or Date) to a human-readable short date, e.g. "Apr 4, 2026". */
 export function formatDate(value: string | Date | null | undefined): string {
   if (!value) return "—";
-  const d = typeof value === "string" ? new Date(value) : value;
+  // Append T12:00:00 for date-only strings to avoid UTC midnight → previous-day shift
+  const d =
+    typeof value === "string"
+      ? /^\d{4}-\d{2}-\d{2}$/.test(value)
+        ? new Date(value + "T12:00:00")
+        : new Date(value)
+      : value;
   if (isNaN(d.getTime())) return "—";
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
